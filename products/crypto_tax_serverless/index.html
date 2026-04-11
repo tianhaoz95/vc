@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto.com → TurboTax Converter (Serverless)</title>
+  <style>
+    /* ── Reset & base ────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #263349;
+      --border: #334155;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-light: #dbeafe;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --long: #4ade80;
+      --short: #f87171;
+      --radius: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────────────────── */
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 24px 32px;
+    }
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 .badge {
+      font-size: 0.65rem;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 4px;
+      padding: 2px 8px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    header p {
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-size: 0.92rem;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+    .card h2 .icon { font-size: 1.2rem; }
+
+    /* ── Upload zone ─────────────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    #drop-zone.dragover {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.07);
+    }
+    #drop-zone.has-file {
+      border-color: var(--success);
+      background: rgba(34, 197, 94, 0.05);
+    }
+    #drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    #drop-zone .upload-icon { font-size: 2.5rem; margin-bottom: 12px; }
+    #drop-zone p { color: var(--text-muted); font-size: 0.93rem; }
+    #drop-zone .file-name {
+      margin-top: 8px;
+      font-weight: 600;
+      color: var(--success);
+      font-size: 0.95rem;
+    }
+
+    /* ── Method selector ─────────────────────────────────────────────────── */
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .method-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .method-card:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+    .method-card.selected {
+      border-color: var(--accent);
+      background: rgba(59,130,246,0.1);
+    }
+    .method-card input[type="radio"] {
+      position: absolute;
+      opacity: 0;
+    }
+    .method-card .method-name {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .method-card .method-name .tag {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .tag-default { background: rgba(34,197,94,0.2); color: #4ade80; }
+    .tag-alt { background: rgba(245,158,11,0.2); color: #fbbf24; }
+    .method-card p { color: var(--text-muted); font-size: 0.87rem; line-height: 1.5; }
+    .method-pros-cons { margin-top: 10px; display: none; }
+    .method-card.selected .method-pros-cons { display: block; }
+    .method-pros-cons ul { padding-left: 16px; }
+    .method-pros-cons li { font-size: 0.83rem; color: var(--text-muted); margin-bottom: 2px; }
+    .pros-label { color: var(--success); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; margin-top: 8px; }
+    .cons-label { color: var(--danger); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; margin-top: 6px; }
+
+    /* ── Tax rules ───────────────────────────────────────────────────────── */
+    .rules-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: 16px;
+    }
+    .rules-toggle:hover { color: var(--text); border-color: var(--accent); }
+    .rules-section { display: none; }
+    .rules-section.open { display: block; }
+    .rule-group { margin-bottom: 16px; }
+    .rule-group h3 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .rule-group ul { padding-left: 20px; }
+    .rule-group li { font-size: 0.88rem; color: var(--text-muted); margin-bottom: 5px; line-height: 1.5; }
+
+    /* ── Convert button ──────────────────────────────────────────────────── */
+    #convert-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+      letter-spacing: 0.02em;
+    }
+    #convert-btn:hover:not(:disabled) { background: var(--accent-hover); }
+    #convert-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Progress / error ────────────────────────────────────────────────── */
+    #status {
+      display: none;
+      text-align: center;
+      padding: 14px;
+      border-radius: var(--radius);
+      margin-top: 16px;
+      font-size: 0.93rem;
+    }
+    #status.info { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+    #status.error { background: rgba(239,68,68,0.1); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+    #status.success { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+
+    /* ── Results ─────────────────────────────────────────────────────────── */
+    #results { display: none; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .summary-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+    }
+    .summary-stat .label { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 6px; }
+    .summary-stat .value { font-size: 1.4rem; font-weight: 700; }
+    .positive { color: var(--danger); }
+    .negative { color: var(--success); }
+    .neutral { color: var(--text); }
+
+    /* ── Download buttons ────────────────────────────────────────────────── */
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .dl-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .dl-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+
+    /* ── Data tables ─────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 20px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 12px;
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .term-long { color: var(--long); font-weight: 600; }
+    .term-short { color: var(--short); font-weight: 600; }
+    .gain { color: var(--danger); }
+    .loss { color: var(--success); }
+
+    .empty-state {
+      text-align: center;
+      padding: 32px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 16px 12px 48px; }
+      header { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>
+    🪙 Crypto.com → TurboTax Converter
+    <span class="badge">Serverless</span>
+  </h1>
+  <p>Runs 100% in your browser — no data is ever uploaded to any server.</p>
+</header>
+
+<main>
+
+  <!-- ── Upload ── -->
+  <div class="card">
+    <h2><span class="icon">📂</span> Step 1: Upload your Crypto.com CSV</h2>
+    <div id="drop-zone">
+      <input type="file" id="file-input" accept=".csv,text/csv" />
+      <div class="upload-icon">⬆️</div>
+      <p>Drag and drop your CSV file here, or <strong>click to browse</strong></p>
+      <p style="margin-top:6px;font-size:0.82rem;">
+        Export from: <strong>Crypto.com App → Accounts → Transaction History → Export to CSV</strong>
+      </p>
+      <div class="file-name" id="file-name-display"></div>
+    </div>
+  </div>
+
+  <!-- ── Method ── -->
+  <div class="card">
+    <h2><span class="icon">⚖️</span> Step 2: Choose a Cost-Basis Method</h2>
+    <div class="method-grid" id="method-grid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ── Tax Rules ── -->
+  <div class="card">
+    <h2><span class="icon">📋</span> Tax Rules Applied</h2>
+    <button class="rules-toggle" id="rules-toggle">▶ Show Tax Rules</button>
+    <div class="rules-section" id="rules-section">
+      <div id="rules-content"><!-- populated by JS --></div>
+    </div>
+  </div>
+
+  <!-- ── Convert ── -->
+  <div class="card">
+    <h2><span class="icon">🔄</span> Step 3: Convert</h2>
+    <button id="convert-btn" disabled>Convert CSV</button>
+    <div id="status"></div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div id="results">
+    <div class="card">
+      <h2><span class="icon">📊</span> Tax Summary</h2>
+      <div class="summary-grid" id="summary-grid"><!-- populated by JS --></div>
+
+      <h2 style="margin-bottom:12px;"><span class="icon">⬇️</span> Download Files</h2>
+      <div class="download-grid" id="download-grid"><!-- populated by JS --></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">📝</span> Transaction Details</h2>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="capital-gains">Capital Gains/Losses</button>
+        <button class="tab-btn" data-tab="income">Ordinary Income</button>
+      </div>
+      <div class="tab-panel active" id="tab-capital-gains">
+        <div class="table-wrap">
+          <table id="gains-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Acquired</th>
+                <th>Sold</th>
+                <th>Term</th>
+                <th>Cost Basis</th>
+                <th>Proceeds</th>
+                <th>Gain / Loss</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="gains-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="tab-panel" id="tab-income">
+        <div class="table-wrap">
+          <table id="income-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th>Date</th>
+                <th>Quantity</th>
+                <th>Fair Market Value</th>
+                <th>Income Type</th>
+              </tr>
+            </thead>
+            <tbody id="income-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>
+    ⚠️ This tool is for informational purposes only and does not constitute tax advice.
+    Consult a qualified tax professional for your specific situation.
+    All processing is done locally in your browser — no data leaves your device.
+  </p>
+  <p style="margin-top:6px;">
+    References: IRS Notice 2014-21 · Rev. Rul. 2019-24 · Rev. Proc. 2024-28
+  </p>
+</footer>
+
+<!-- ── JavaScript modules ────────────────────────────────────────────────── -->
+<script src="src/parser.js"></script>
+<script src="src/calculator.js"></script>
+<script src="src/exporter.js"></script>
+<script>
+"use strict";
+
+// ── State ────────────────────────────────────────────────────────────────────
+let csvContent = null;
+let selectedMethod = "FIFO";
+let lastReport = null;
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
+const fileNameDisplay = document.getElementById("file-name-display");
+const methodGrid = document.getElementById("method-grid");
+const rulesSection = document.getElementById("rules-section");
+const rulesContent = document.getElementById("rules-content");
+const rulesToggle = document.getElementById("rules-toggle");
+const convertBtn = document.getElementById("convert-btn");
+const statusEl = document.getElementById("status");
+const resultsEl = document.getElementById("results");
+const summaryGrid = document.getElementById("summary-grid");
+const downloadGrid = document.getElementById("download-grid");
+const gainsBody = document.getElementById("gains-body");
+const incomeBody = document.getElementById("income-body");
+
+// ── Tax rules ─────────────────────────────────────────────────────────────────
+TAX_RULES.forEach((group) => {
+  const div = document.createElement("div");
+  div.className = "rule-group";
+  div.innerHTML = `<h3>${group.title}</h3><ul>${group.rules.map(r => `<li>${r}</li>`).join("")}</ul>`;
+  rulesContent.appendChild(div);
+});
+
+rulesToggle.addEventListener("click", () => {
+  const open = rulesSection.classList.toggle("open");
+  rulesToggle.textContent = open ? "▼ Hide Tax Rules" : "▶ Show Tax Rules";
+});
+
+// ── Method cards ──────────────────────────────────────────────────────────────
+VALID_METHODS.forEach((method) => {
+  const info = METHOD_DESCRIPTIONS[method];
+  const card = document.createElement("label");
+  card.className = "method-card" + (method === "FIFO" ? " selected" : "");
+  card.innerHTML = `
+    <input type="radio" name="method" value="${method}" ${method === "FIFO" ? "checked" : ""} />
+    <div class="method-name">
+      ${method}
+      <span class="tag ${method === "FIFO" ? "tag-default" : "tag-alt"}">
+        ${method === "FIFO" ? "IRS Default" : "Requires Specific ID"}
+      </span>
+    </div>
+    <p>${info.description}</p>
+    <div class="method-pros-cons">
+      <div class="pros-label">✓ Pros</div>
+      <ul>${info.pros.map(p => `<li>${p}</li>`).join("")}</ul>
+      <div class="cons-label">✗ Cons</div>
+      <ul>${info.cons.map(c => `<li>${c}</li>`).join("")}</ul>
+    </div>
+  `;
+  card.querySelector("input").addEventListener("change", () => {
+    selectedMethod = method;
+    document.querySelectorAll(".method-card").forEach(c => c.classList.remove("selected"));
+    card.classList.add("selected");
+  });
+  methodGrid.appendChild(card);
+});
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    csvContent = e.target.result;
+    fileNameDisplay.textContent = `✓ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    dropZone.classList.add("has-file");
+    convertBtn.disabled = false;
+  };
+  reader.readAsText(file, "utf-8");
+}
+
+fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("dragover");
+});
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  handleFile(e.dataTransfer.files[0]);
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
+  });
+});
+
+// ── Convert ───────────────────────────────────────────────────────────────────
+convertBtn.addEventListener("click", () => {
+  if (!csvContent) return;
+  showStatus("⏳ Parsing CSV...", "info");
+  convertBtn.disabled = true;
+
+  // Run asynchronously to allow the UI to update
+  setTimeout(() => {
+    try {
+      const transactions = parseCsv(csvContent);
+
+      if (transactions.length === 0) {
+        showStatus("⚠️ No transactions found. Check that your CSV matches the Crypto.com App export format.", "error");
+        convertBtn.disabled = false;
+        return;
+      }
+
+      showStatus(`⏳ Calculating taxes using ${selectedMethod} for ${transactions.length} transactions...`, "info");
+
+      setTimeout(() => {
+        try {
+          lastReport = calculateTaxes(transactions, selectedMethod);
+          showStatus(
+            `✅ Done! Processed ${transactions.length} transactions → ` +
+            `${lastReport.taxEvents.length} taxable events, ` +
+            `${lastReport.incomeEvents.length} income events.`,
+            "success"
+          );
+          renderResults(lastReport, selectedMethod);
+          convertBtn.disabled = false;
+        } catch (err) {
+          showStatus(`❌ Calculation error: ${err.message}`, "error");
+          convertBtn.disabled = false;
+        }
+      }, 50);
+    } catch (err) {
+      showStatus(`❌ Parse error: ${err.message}`, "error");
+      convertBtn.disabled = false;
+    }
+  }, 50);
+});
+
+// ── Render results ────────────────────────────────────────────────────────────
+function renderResults(report, method) {
+  const { capitalGainsCsv, incomeCsv } = exportTurboTaxCsv(report);
+  const summaryTxt = exportSummaryTxt(report, method);
+
+  // Summary stats
+  summaryGrid.innerHTML = "";
+  const stats = [
+    { label: "Short-term Gain/Loss", value: report.totalShortTermGainLoss, isMoney: true },
+    { label: "Long-term Gain/Loss", value: report.totalLongTermGainLoss, isMoney: true },
+    { label: "Total Gain/Loss", value: report.totalGainLoss, isMoney: true },
+    { label: "Ordinary Income", value: report.totalOrdinaryIncome, isMoney: true },
+    { label: "Taxable Events", value: report.taxEvents.length, isMoney: false },
+    { label: "Income Events", value: report.incomeEvents.length, isMoney: false },
+  ];
+  stats.forEach(({ label, value, isMoney }) => {
+    const div = document.createElement("div");
+    div.className = "summary-stat";
+    let cls = "neutral";
+    let display = isMoney ? fmtMoney(value) : value;
+    if (isMoney) cls = value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
+    div.innerHTML = `<div class="label">${label}</div><div class="value ${cls}">${display}</div>`;
+    summaryGrid.appendChild(div);
+  });
+
+  // Download buttons
+  downloadGrid.innerHTML = "";
+  const files = [
+    { name: "capital_gains.csv", content: capitalGainsCsv, mime: "text/csv", label: "📄 Capital Gains CSV (Form 8949)" },
+    { name: "income.csv", content: incomeCsv, mime: "text/csv", label: "📄 Income CSV (Schedule 1)" },
+    { name: "summary.txt", content: summaryTxt, mime: "text/plain", label: "📝 Summary TXT" },
+  ];
+  files.forEach(({ name, content, mime, label }) => {
+    const a = document.createElement("a");
+    a.className = "dl-btn";
+    a.textContent = label;
+    a.href = makeDownloadUrl(content, mime);
+    a.download = name;
+    downloadGrid.appendChild(a);
+  });
+
+  // Capital gains table
+  gainsBody.innerHTML = "";
+  if (report.taxEvents.length === 0) {
+    gainsBody.innerHTML = `<tr><td colspan="8" class="empty-state">No capital gain/loss events found.</td></tr>`;
+  } else {
+    report.taxEvents.forEach((evt) => {
+      const tr = document.createElement("tr");
+      const gl = evt.gainLossUsd;
+      tr.innerHTML = `
+        <td>${escHtml(fmtQty(evt.quantity))} ${escHtml(evt.currency)}</td>
+        <td>${fmtDate(evt.dateAcquired)}</td>
+        <td>${fmtDate(evt.dateSold)}</td>
+        <td class="${evt.isLongTerm ? "term-long" : "term-short"}">${evt.isLongTerm ? "Long-term" : "Short-term"}</td>
+        <td>$${evt.costBasisUsd.toFixed(2)}</td>
+        <td>$${evt.proceedsUsd.toFixed(2)}</td>
+        <td class="${gl >= 0 ? "gain" : "loss"}">${gl >= 0 ? "+" : ""}$${gl.toFixed(2)}</td>
+        <td>${escHtml(evt.eventType)}</td>
+      `;
+      gainsBody.appendChild(tr);
+    });
+  }
+
+  // Income table
+  incomeBody.innerHTML = "";
+  if (report.incomeEvents.length === 0) {
+    incomeBody.innerHTML = `<tr><td colspan="5" class="empty-state">No income events found.</td></tr>`;
+  } else {
+    report.incomeEvents.forEach((evt) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${escHtml(evt.currency)}</td>
+        <td>${fmtDate(evt.dateReceived)}</td>
+        <td>${escHtml(fmtQty(evt.quantity))}</td>
+        <td>$${evt.fairMarketValueUsd.toFixed(2)}</td>
+        <td>${escHtml(evt.description)}</td>
+      `;
+      incomeBody.appendChild(tr);
+    });
+  }
+
+  resultsEl.style.display = "block";
+  resultsEl.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showStatus(msg, type) {
+  statusEl.textContent = msg;
+  statusEl.className = type;
+  statusEl.style.display = "block";
+}
+
+function fmtMoney(n) {
+  const sign = n < 0 ? "-" : "";
+  return `${sign}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function fmtDate(d) {
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const yyyy = d.getUTCFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function fmtQty(qty) {
+  return parseFloat(qty.toPrecision(8)).toString();
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function makeDownloadUrl(content, mime) {
+  const blob = new Blob([content], { type: mime });
+  return URL.createObjectURL(blob);
+}
+</script>
+</body>
+</html>
