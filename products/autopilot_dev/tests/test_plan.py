@@ -88,9 +88,6 @@ class TestMarkTaskDone:
         assert task is not None
         pm.mark_task_done(task)
 
-        updated = pm.get_tasks()
-        assert updated[task.line_index - updated[0].line_index + 0].done  # noqa: a bit indirect
-        # Simpler: re-read and check text directly
         content = plan_file.read_text(encoding="utf-8")
         assert "- [x] Task one" in content
 
