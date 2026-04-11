@@ -62,26 +62,25 @@ class TestBuildAgentCommand:
     def test_copilot_no_model(self):
         spec = AgentSpec(cli="copilot", model=None)
         cmd = build_agent_command(spec, "do the thing")
-        assert cmd == ["copilot", "suggest", "-t", "shell", "do the thing"]
+        assert cmd == ["copilot", "-p", "do the thing", "--yolo"]
 
     def test_copilot_with_model(self):
         spec = AgentSpec(cli="copilot", model="gpt-5-mini")
         cmd = build_agent_command(spec, "do the thing")
         assert cmd == [
-            "copilot", "suggest", "-t", "shell",
+            "copilot", "-p", "do the thing", "--yolo",
             "--model", "gpt-5-mini",
-            "do the thing",
         ]
 
     def test_gemini_no_model(self):
         spec = AgentSpec(cli="gemini", model=None)
         cmd = build_agent_command(spec, "review this")
-        assert cmd == ["gemini", "review this"]
+        assert cmd == ["gemini", "-p", "review this", "-y"]
 
     def test_gemini_with_model(self):
         spec = AgentSpec(cli="gemini", model="gemini-2.0")
         cmd = build_agent_command(spec, "review this")
-        assert cmd == ["gemini", "--model", "gemini-2.0", "review this"]
+        assert cmd == ["gemini", "-p", "review this", "-y", "--model", "gemini-2.0"]
 
     def test_unknown_cli_no_model(self):
         spec = AgentSpec(cli="my-agent", model=None)
@@ -106,7 +105,7 @@ class TestAgentRunner:
             result = runner.run("some prompt")
             mock_run.assert_called_once()
             call_args = mock_run.call_args
-            assert call_args[0][0] == ["gemini", "some prompt"]
+            assert call_args[0][0] == ["gemini", "-p", "some prompt", "-y"]
             assert result.returncode == 0
 
     def test_run_passes_timeout(self):
