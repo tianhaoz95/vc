@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "vc-crypto-tax",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

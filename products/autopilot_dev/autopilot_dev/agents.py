@@ -64,7 +64,7 @@ def build_agent_command(spec: AgentSpec, prompt: str) -> list[str]:
         A list of strings suitable for ``subprocess.run(cmd, ...)``.
     """
     if spec.cli == "copilot":
-        cmd = ["gh", "copilot", "suggest", "-t", "shell"]
+        cmd = ["copilot", "suggest", "-t", "shell"]
         if spec.model:
             cmd += ["--model", spec.model]
         cmd.append(prompt)

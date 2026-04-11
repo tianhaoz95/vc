@@ -62,13 +62,13 @@ class TestBuildAgentCommand:
     def test_copilot_no_model(self):
         spec = AgentSpec(cli="copilot", model=None)
         cmd = build_agent_command(spec, "do the thing")
-        assert cmd == ["gh", "copilot", "suggest", "-t", "shell", "do the thing"]
+        assert cmd == ["copilot", "suggest", "-t", "shell", "do the thing"]
 
     def test_copilot_with_model(self):
         spec = AgentSpec(cli="copilot", model="gpt-5-mini")
         cmd = build_agent_command(spec, "do the thing")
         assert cmd == [
-            "gh", "copilot", "suggest", "-t", "shell",
+            "copilot", "suggest", "-t", "shell",
             "--model", "gpt-5-mini",
             "do the thing",
         ]

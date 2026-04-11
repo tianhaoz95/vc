@@ -8,6 +8,7 @@ A collection of tools and products focused on cryptocurrency utilities, specific
 - **Project Structure:**
     - `products/`: Contains individual products and tools.
         - `crypto_tax/`: A Flask-based web application for converting Crypto.com App CSV exports into TurboTax-ready files.
+        - `crypto_tax_serverless/`: A purely client-side version of the tax converter running in the browser.
         - `crypto_tax_mobile/`: Flet-based mobile companion app for the tax converter.
 
 ## Products
@@ -17,7 +18,12 @@ Automates the conversion of transaction history into tax-ready formats.
 - **Location:** `./products/crypto_tax`
 - **Documentation:** See [products/crypto_tax/GEMINI.md](./products/crypto_tax/GEMINI.md) for detailed architecture and instructions.
 
-### 2. Crypto.com → TurboTax Mobile (Flet)
+### 2. Crypto.com → TurboTax Serverless (Browser)
+Zero-infrastructure, high-privacy tax conversion tool.
+- **Location:** `./products/crypto_tax_serverless`
+- **Documentation:** See [products/crypto_tax_serverless/GEMINI.md](./products/crypto_tax_serverless/GEMINI.md) for detailed architecture and instructions.
+
+### 3. Crypto.com → TurboTax Mobile (Flet)
 Portable, offline-first mobile app for tax conversion.
 - **Location:** `./products/crypto_tax_mobile`
 - **Documentation:** See [products/crypto_tax_mobile/GEMINI.md](./products/crypto_tax_mobile/GEMINI.md) for detailed architecture and instructions.

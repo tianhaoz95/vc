@@ -1,0 +1,22 @@
+name: Deploy Crypto Tax Serverless
+
+on:
+  push:
+    paths:
+      - 'products/crypto_tax_serverless/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: products/crypto_tax_serverless
+        run: npm install
+
+      - name: Deploy to Firebase Hosting
+        working-directory: products/crypto_tax_serverless
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: npx -y firebase-tools@latest deploy --only hosting:vc-crypto-tax --token $FIREBASE_TOKEN
