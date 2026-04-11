@@ -306,13 +306,19 @@ function round8(n) {
  *
  * @param {import('./parser').CryptoTransaction[]} transactions
  * @param {string} method - "FIFO", "LIFO", or "HIFO"
+ * @param {object} [options]
+ * @param {Set<string>|string[]} [options.ignoredIncomeKinds] - transaction kinds to exclude from
+ *   ordinary income reporting. Matching transactions are still tracked as $0-cost-basis
+ *   acquisitions so future disposals can be matched correctly.
  * @returns {TaxReport}
  */
-function calculateTaxes(transactions, method = "FIFO") {
+function calculateTaxes(transactions, method = "FIFO", options = {}) {
   method = method.toUpperCase();
   if (!VALID_METHODS.includes(method)) {
     throw new Error(`method must be one of ${VALID_METHODS.join(", ")}, got "${method}"`);
   }
+
+  const ignoredIncomeKinds = new Set(options.ignoredIncomeKinds || []);
 
   const report = new TaxReport();
 
@@ -335,26 +341,42 @@ function calculateTaxes(transactions, method = "FIFO") {
 
     // ── Income events ──────────────────────────────────────────────────────
     if (tx.isIncome) {
-      const incomeUsd = usd > 0 ? usd : 0;
-      report.incomeEvents.push(
-        new IncomeEvent({
-          currency,
-          description: desc,
-          dateReceived: ts,
-          quantity: Math.abs(amount),
-          fairMarketValueUsd: round8(incomeUsd),
-        })
-      );
-      // Income receipts also become acquisition lots (FMV = cost basis)
-      if (Math.abs(amount) > 0 && incomeUsd > 0) {
-        getPool(currency).add(
-          new Lot({
+      const isIgnored = ignoredIncomeKinds.has(tx.transactionKind);
+      if (!isIgnored) {
+        const incomeUsd = usd > 0 ? usd : 0;
+        report.incomeEvents.push(
+          new IncomeEvent({
             currency,
-            acquired: ts,
+            description: desc,
+            dateReceived: ts,
             quantity: Math.abs(amount),
-            costBasisUsd: incomeUsd,
+            fairMarketValueUsd: round8(incomeUsd),
           })
         );
+        // Income receipts also become acquisition lots (FMV = cost basis)
+        if (Math.abs(amount) > 0 && incomeUsd > 0) {
+          getPool(currency).add(
+            new Lot({
+              currency,
+              acquired: ts,
+              quantity: Math.abs(amount),
+              costBasisUsd: incomeUsd,
+            })
+          );
+        }
+      } else {
+        // Ignored income: still add to lot pool with $0 cost basis so that
+        // future disposals of this crypto can be matched against an acquisition.
+        if (Math.abs(amount) > 0) {
+          getPool(currency).add(
+            new Lot({
+              currency,
+              acquired: ts,
+              quantity: Math.abs(amount),
+              costBasisUsd: 0,
+            })
+          );
+        }
       }
       continue;
     }
@@ -410,10 +432,36 @@ function calculateTaxes(transactions, method = "FIFO") {
   return report;
 }
 
+/**
+ * Return a new TaxReport containing only events that fall within the given
+ * calendar year (UTC). Pass null/undefined to return the original report
+ * unchanged.
+ *
+ * Capital-gain events are filtered by their disposal date (dateSold).
+ * Income events are filtered by their receipt date (dateReceived).
+ *
+ * @param {TaxReport} report
+ * @param {number|null|undefined} year - UTC calendar year, e.g. 2025
+ * @returns {TaxReport}
+ */
+function filterReportByYear(report, year) {
+  if (year == null) return report;
+  const y = Number(year);
+  const filtered = new TaxReport();
+  filtered.taxEvents = report.taxEvents.filter(
+    (e) => e.dateSold.getUTCFullYear() === y
+  );
+  filtered.incomeEvents = report.incomeEvents.filter(
+    (e) => e.dateReceived.getUTCFullYear() === y
+  );
+  return filtered;
+}
+
 // Export for Node.js (tests) and browser (global)
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     calculateTaxes,
+    filterReportByYear,
     TaxReport,
     TaxEvent,
     IncomeEvent,

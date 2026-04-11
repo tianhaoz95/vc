@@ -127,6 +127,113 @@
       font-size: 0.95rem;
     }
 
+    /* ── File list ───────────────────────────────────────────────────────── */
+    #file-list {
+      margin-top: 14px;
+      display: none;
+      text-align: left;
+    }
+    #file-list .file-list-header {
+      font-size: 0.83rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    #file-list ul {
+      list-style: none;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #file-list ul li {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.83rem;
+      color: var(--success);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #file-list ul li .remove-file {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1;
+      background: none;
+      border: none;
+      padding: 0 2px;
+      transition: color 0.15s;
+    }
+    #file-list ul li .remove-file:hover { color: var(--danger); }
+
+    /* ── Options panel ───────────────────────────────────────────────────── */
+    .options-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 4px;
+    }
+    .options-group h3 {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .year-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .year-input-wrap input[type="number"] {
+      width: 110px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .year-input-wrap input[type="number"]:focus { border-color: var(--accent); }
+    .year-input-wrap .year-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .checkbox-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .checkbox-list label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      transition: color 0.15s;
+    }
+    .checkbox-list label:hover { color: var(--text); }
+    .checkbox-list input[type="checkbox"] {
+      margin-top: 2px;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .checkbox-list label.ignored { color: var(--warning); }
+
     /* ── Method selector ─────────────────────────────────────────────────── */
     .method-grid {
       display: grid;
@@ -371,15 +478,19 @@
 
   <!-- ── Upload ── -->
   <div class="card">
-    <h2><span class="icon">📂</span> Step 1: Upload your Crypto.com CSV</h2>
+    <h2><span class="icon">📂</span> Step 1: Upload your Crypto.com CSV file(s)</h2>
     <div id="drop-zone">
-      <input type="file" id="file-input" accept=".csv,text/csv" />
+      <input type="file" id="file-input" accept=".csv,text/csv" multiple />
       <div class="upload-icon">⬆️</div>
-      <p>Drag and drop your CSV file here, or <strong>click to browse</strong></p>
+      <p>Drag and drop one or more CSV files here, or <strong>click to browse</strong></p>
       <p style="margin-top:6px;font-size:0.82rem;">
         Export from: <strong>Crypto.com App → Accounts → Transaction History → Export to CSV</strong>
       </p>
       <div class="file-name" id="file-name-display"></div>
+    </div>
+    <div id="file-list">
+      <div class="file-list-header">Loaded files</div>
+      <ul id="file-list-items"></ul>
     </div>
   </div>
 
@@ -388,6 +499,32 @@
     <h2><span class="icon">⚖️</span> Step 2: Choose a Cost-Basis Method</h2>
     <div class="method-grid" id="method-grid">
       <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ── Options ── -->
+  <div class="card">
+    <h2><span class="icon">🛠️</span> Step 3: Options</h2>
+    <div class="options-grid">
+      <!-- Tax year filter -->
+      <div class="options-group">
+        <h3>Tax Year Filter</h3>
+        <div class="year-input-wrap">
+          <input type="number" id="tax-year-input" placeholder="e.g. 2025" min="2010" max="2099" step="1" />
+          <span class="year-hint">Leave blank to include all years</span>
+        </div>
+      </div>
+      <!-- Ignored income categories -->
+      <div class="options-group">
+        <h3>Ignore Income Categories</h3>
+        <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">
+          Unchecked categories will not be reported as ordinary income.
+          The received crypto is still tracked at $0 cost basis for future disposals.
+        </p>
+        <div class="checkbox-list" id="income-kinds-list">
+          <!-- populated by JS -->
+        </div>
+      </div>
     </div>
   </div>
 
@@ -402,7 +539,7 @@
 
   <!-- ── Convert ── -->
   <div class="card">
-    <h2><span class="icon">🔄</span> Step 3: Convert</h2>
+    <h2><span class="icon">🔄</span> Step 4: Convert</h2>
     <button id="convert-btn" disabled>Convert CSV</button>
     <div id="status"></div>
   </div>
@@ -482,7 +619,8 @@
 "use strict";
 
 // ── State ────────────────────────────────────────────────────────────────────
-let csvContent = null;
+// Each entry: { name: string, content: string }
+let loadedFiles = [];
 let selectedMethod = "FIFO";
 let lastReport = null;
 
@@ -490,7 +628,11 @@ let lastReport = null;
 const dropZone = document.getElementById("drop-zone");
 const fileInput = document.getElementById("file-input");
 const fileNameDisplay = document.getElementById("file-name-display");
+const fileListEl = document.getElementById("file-list");
+const fileListItems = document.getElementById("file-list-items");
 const methodGrid = document.getElementById("method-grid");
+const taxYearInput = document.getElementById("tax-year-input");
+const incomeKindsList = document.getElementById("income-kinds-list");
 const rulesSection = document.getElementById("rules-section");
 const rulesContent = document.getElementById("rules-content");
 const rulesToggle = document.getElementById("rules-toggle");
@@ -544,20 +686,108 @@ VALID_METHODS.forEach((method) => {
   methodGrid.appendChild(card);
 });
 
+// ── Income kinds checkboxes ───────────────────────────────────────────────────
+// Human-readable labels for each income transaction kind
+const INCOME_KIND_LABELS = {
+  crypto_earn_interest_paid: "Earn / Savings interest",
+  referral_gift: "Referral bonus",
+  referral_card_cashback: "Card cashback (CRO) / Referral cashback",
+  reimbursement: "Fee reimbursement",
+  reimbursement_reverted: "Fee reimbursement reversal",
+  crypto_payment: "Payment received in crypto",
+  supercharger_reward_to_app_credited: "Supercharger reward",
+  crypto_earn_extra_interest_paid: "Bonus Earn interest",
+  card_cashback_reverted: "Card cashback reversal",
+  dust_conversion_credited: "Dust conversion (CRO credited)",
+  crypto_wallet_swap_credited: "In-wallet swap (credit leg)",
+  mco_stake_reward: "MCO staking reward",
+  crypto_viban_exchange: "VIBAN purchase (credited)",
+  viban_purchase: "Virtual IBAN purchase",
+};
+
+Array.from(INCOME_KINDS).forEach((kind) => {
+  const label = document.createElement("label");
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.value = kind;
+  checkbox.checked = true;
+  checkbox.addEventListener("change", () => {
+    label.classList.toggle("ignored", !checkbox.checked);
+  });
+  label.appendChild(checkbox);
+  label.appendChild(document.createTextNode(INCOME_KIND_LABELS[kind] || kind));
+  incomeKindsList.appendChild(label);
+});
+
 // ── File upload ───────────────────────────────────────────────────────────────
-function handleFile(file) {
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    csvContent = e.target.result;
-    fileNameDisplay.textContent = `✓ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    dropZone.classList.add("has-file");
-    convertBtn.disabled = false;
-  };
-  reader.readAsText(file, "utf-8");
+function updateFileUI() {
+  fileListItems.innerHTML = "";
+  if (loadedFiles.length === 0) {
+    fileListEl.style.display = "none";
+    fileNameDisplay.textContent = "";
+    dropZone.classList.remove("has-file");
+    convertBtn.disabled = true;
+    return;
+  }
+  fileListEl.style.display = "block";
+  dropZone.classList.add("has-file");
+  convertBtn.disabled = false;
+  fileNameDisplay.textContent = `✓ ${loadedFiles.length} file${loadedFiles.length > 1 ? "s" : ""} loaded`;
+
+  loadedFiles.forEach((f, idx) => {
+    const li = document.createElement("li");
+
+    const icon = document.createTextNode("📄 ");
+    li.appendChild(icon);
+
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = f.name;
+    li.appendChild(nameSpan);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.className = "remove-file";
+    removeBtn.title = "Remove";
+    removeBtn.setAttribute("aria-label", `Remove ${f.name}`);
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", () => {
+      loadedFiles.splice(idx, 1);
+      updateFileUI();
+    });
+    li.appendChild(removeBtn);
+
+    fileListItems.appendChild(li);
+  });
 }
 
-fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+function readFiles(files) {
+  const promises = Array.from(files).map(
+    (file) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve({ name: file.name, content: e.target.result });
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsText(file, "utf-8");
+      })
+  );
+
+  Promise.all(promises).then((results) => {
+    // Avoid duplicate file names
+    const existingNames = new Set(loadedFiles.map((f) => f.name));
+    results.forEach((r) => {
+      if (!existingNames.has(r.name)) {
+        loadedFiles.push(r);
+        existingNames.add(r.name);
+      }
+    });
+    updateFileUI();
+  });
+}
+
+fileInput.addEventListener("change", (e) => {
+  if (e.target.files.length > 0) readFiles(e.target.files);
+  // Reset so the same file can be re-selected
+  fileInput.value = "";
+});
 
 dropZone.addEventListener("dragover", (e) => {
   e.preventDefault();
@@ -567,7 +797,7 @@ dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover
 dropZone.addEventListener("drop", (e) => {
   e.preventDefault();
   dropZone.classList.remove("dragover");
-  handleFile(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files.length > 0) readFiles(e.dataTransfer.files);
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -582,33 +812,56 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
 
 // ── Convert ───────────────────────────────────────────────────────────────────
 convertBtn.addEventListener("click", () => {
-  if (!csvContent) return;
-  showStatus("⏳ Parsing CSV...", "info");
+  if (loadedFiles.length === 0) return;
+  showStatus("⏳ Parsing CSV files...", "info");
   convertBtn.disabled = true;
 
-  // Run asynchronously to allow the UI to update
   setTimeout(() => {
     try {
-      const transactions = parseCsv(csvContent);
+      // Merge transactions from all loaded CSV files
+      let allTransactions = [];
+      for (const file of loadedFiles) {
+        const txs = parseCsv(file.content);
+        allTransactions = allTransactions.concat(txs);
+      }
 
-      if (transactions.length === 0) {
-        showStatus("⚠️ No transactions found. Check that your CSV matches the Crypto.com App export format.", "error");
+      if (allTransactions.length === 0) {
+        showStatus("⚠️ No transactions found. Check that your CSV files match the Crypto.com App export format.", "error");
         convertBtn.disabled = false;
         return;
       }
 
-      showStatus(`⏳ Calculating taxes using ${selectedMethod} for ${transactions.length} transactions...`, "info");
+      // Collect ignored income kinds
+      const ignoredIncomeKinds = new Set(
+        Array.from(incomeKindsList.querySelectorAll("input[type=checkbox]"))
+          .filter((cb) => !cb.checked)
+          .map((cb) => cb.value)
+      );
+
+      // Read optional tax year filter
+      const taxYearRaw = taxYearInput.value.trim();
+      const taxYear = taxYearRaw !== "" ? parseInt(taxYearRaw, 10) : null;
+
+      showStatus(
+        `⏳ Calculating taxes using ${selectedMethod} for ${allTransactions.length} transactions` +
+        (taxYear ? ` (tax year ${taxYear})` : "") + "...",
+        "info"
+      );
 
       setTimeout(() => {
         try {
-          lastReport = calculateTaxes(transactions, selectedMethod);
+          const fullReport = calculateTaxes(allTransactions, selectedMethod, { ignoredIncomeKinds });
+          lastReport = filterReportByYear(fullReport, taxYear);
+
+          const ignoredCount = ignoredIncomeKinds.size;
           showStatus(
-            `✅ Done! Processed ${transactions.length} transactions → ` +
-            `${lastReport.taxEvents.length} taxable events, ` +
-            `${lastReport.incomeEvents.length} income events.`,
+            `✅ Done! Processed ${allTransactions.length} transactions` +
+            (taxYear ? ` · Tax year ${taxYear}` : "") +
+            (ignoredCount > 0 ? ` · ${ignoredCount} income category${ignoredCount > 1 ? "s" : ""} ignored` : "") +
+            ` → ${lastReport.taxEvents.length} taxable events, ${lastReport.incomeEvents.length} income events.`,
             "success"
           );
-          renderResults(lastReport, selectedMethod);
+          renderResults(lastReport, selectedMethod, taxYear);
           convertBtn.disabled = false;
         } catch (err) {
           showStatus(`❌ Calculation error: ${err.message}`, "error");
@@ -623,7 +876,7 @@ convertBtn.addEventListener("click", () => {
 });
 
 // ── Render results ────────────────────────────────────────────────────────────
-function renderResults(report, method) {
+function renderResults(report, method, taxYear) {
   const { capitalGainsCsv, incomeCsv } = exportTurboTaxCsv(report);
   const summaryTxt = exportSummaryTxt(report, method);
 
@@ -648,11 +901,12 @@ function renderResults(report, method) {
   });
 
   // Download buttons
+  const yearSuffix = taxYear ? `_${taxYear}` : "";
   downloadGrid.innerHTML = "";
   const files = [
-    { name: "capital_gains.csv", content: capitalGainsCsv, mime: "text/csv", label: "📄 Capital Gains CSV (Form 8949)" },
-    { name: "income.csv", content: incomeCsv, mime: "text/csv", label: "📄 Income CSV (Schedule 1)" },
-    { name: "summary.txt", content: summaryTxt, mime: "text/plain", label: "📝 Summary TXT" },
+    { name: `capital_gains${yearSuffix}.csv`, content: capitalGainsCsv, mime: "text/csv", label: "📄 Capital Gains CSV (Form 8949)" },
+    { name: `income${yearSuffix}.csv`, content: incomeCsv, mime: "text/csv", label: "📄 Income CSV (Schedule 1)" },
+    { name: `summary${yearSuffix}.txt`, content: summaryTxt, mime: "text/plain", label: "📝 Summary TXT" },
   ];
   files.forEach(({ name, content, mime, label }) => {
     const a = document.createElement("a");

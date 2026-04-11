@@ -3,6 +3,7 @@
 const { CryptoTransaction } = require("../src/parser");
 const {
   calculateTaxes,
+  filterReportByYear,
   TaxReport,
   VALID_METHODS,
   isLongTerm,
@@ -429,5 +430,115 @@ describe("TaxReport computed properties", () => {
     expect(report.totalGainLoss).toBeCloseTo(
       report.totalShortTermGainLoss + report.totalLongTermGainLoss
     );
+  });
+});
+
+// ── filterReportByYear ────────────────────────────────────────────────────────
+
+describe("filterReportByYear", () => {
+  const txs = [
+    // 2023 buy
+    tx({ timestamp: dt(2023, 1, 1), currency: "BTC", amount: 1.0, nativeUsd: -20000, kind: "crypto_purchase" }),
+    // 2024 sale → capital event in 2024
+    tx({ timestamp: dt(2024, 6, 1), currency: "BTC", amount: -0.5, nativeUsd: 15000, kind: "crypto_purchase" }),
+    // 2025 sale → capital event in 2025
+    tx({ timestamp: dt(2025, 3, 1), currency: "BTC", amount: -0.5, nativeUsd: 18000, kind: "crypto_purchase" }),
+    // 2024 income
+    tx({ timestamp: dt(2024, 2, 1), currency: "CRO", amount: 100, nativeUsd: 30, kind: "crypto_earn_interest_paid" }),
+    // 2025 income
+    tx({ timestamp: dt(2025, 5, 1), currency: "CRO", amount: 50, nativeUsd: 15, kind: "crypto_earn_interest_paid" }),
+  ];
+
+  test("null year returns full report unchanged", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    const filtered = filterReportByYear(report, null);
+    expect(filtered.taxEvents).toHaveLength(report.taxEvents.length);
+    expect(filtered.incomeEvents).toHaveLength(report.incomeEvents.length);
+  });
+
+  test("year 2024 returns only 2024 events", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    const filtered = filterReportByYear(report, 2024);
+    expect(filtered.taxEvents).toHaveLength(1);
+    expect(filtered.taxEvents[0].dateSold.getUTCFullYear()).toBe(2024);
+    expect(filtered.incomeEvents).toHaveLength(1);
+    expect(filtered.incomeEvents[0].dateReceived.getUTCFullYear()).toBe(2024);
+  });
+
+  test("year 2025 returns only 2025 events", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    const filtered = filterReportByYear(report, 2025);
+    expect(filtered.taxEvents).toHaveLength(1);
+    expect(filtered.taxEvents[0].dateSold.getUTCFullYear()).toBe(2025);
+    expect(filtered.incomeEvents).toHaveLength(1);
+    expect(filtered.incomeEvents[0].dateReceived.getUTCFullYear()).toBe(2025);
+  });
+
+  test("year with no events returns empty report", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    const filtered = filterReportByYear(report, 2023);
+    expect(filtered.taxEvents).toHaveLength(0);
+    expect(filtered.incomeEvents).toHaveLength(0);
+  });
+
+  test("cost basis from prior years is still applied correctly when filtering", () => {
+    // Buy 1 BTC in 2023 @ $20,000 total → $20,000 per BTC
+    // Sell 0.5 BTC in 2024 for $15,000 → gain = 15,000 - 10,000 = $5,000
+    const report = calculateTaxes(txs, "FIFO");
+    const filtered2024 = filterReportByYear(report, 2024);
+    expect(filtered2024.taxEvents[0].gainLossUsd).toBeCloseTo(5000);
+  });
+});
+
+// ── ignoredIncomeKinds option ─────────────────────────────────────────────────
+
+describe("calculateTaxes with ignoredIncomeKinds", () => {
+  const txs = [
+    tx({ timestamp: dt(2023, 1, 1), currency: "CRO", amount: 200, nativeUsd: 60, kind: "referral_card_cashback" }),
+    tx({ timestamp: dt(2023, 6, 1), currency: "CRO", amount: 100, nativeUsd: 30, kind: "crypto_earn_interest_paid" }),
+  ];
+
+  test("without ignore option, both income events are reported", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.incomeEvents).toHaveLength(2);
+    expect(report.totalOrdinaryIncome).toBeCloseTo(90);
+  });
+
+  test("ignoring referral_card_cashback removes it from income but keeps interest", () => {
+    const report = calculateTaxes(txs, "FIFO", {
+      ignoredIncomeKinds: ["referral_card_cashback"],
+    });
+    expect(report.incomeEvents).toHaveLength(1);
+    expect(report.incomeEvents[0].fairMarketValueUsd).toBeCloseTo(30);
+    expect(report.totalOrdinaryIncome).toBeCloseTo(30);
+  });
+
+  test("ignoring all income kinds results in zero ordinary income", () => {
+    const report = calculateTaxes(txs, "FIFO", {
+      ignoredIncomeKinds: ["referral_card_cashback", "crypto_earn_interest_paid"],
+    });
+    expect(report.incomeEvents).toHaveLength(0);
+    expect(report.totalOrdinaryIncome).toBe(0);
+  });
+
+  test("ignored income crypto is still tracked as $0-cost-basis acquisition for future disposal", () => {
+    const txsWithSale = [
+      tx({ timestamp: dt(2023, 1, 1), currency: "CRO", amount: 100, nativeUsd: 50, kind: "referral_card_cashback" }),
+      tx({ timestamp: dt(2024, 1, 1), currency: "CRO", amount: -100, nativeUsd: 80, kind: "crypto_exchange" }),
+    ];
+    const report = calculateTaxes(txsWithSale, "FIFO", {
+      ignoredIncomeKinds: ["referral_card_cashback"],
+    });
+    expect(report.incomeEvents).toHaveLength(0);
+    // The 100 CRO was tracked at $0 cost basis, sold for $80 → gain = $80
+    expect(report.taxEvents).toHaveLength(1);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(80);
+  });
+
+  test("ignoredIncomeKinds accepts a Set as well as an array", () => {
+    const report = calculateTaxes(txs, "FIFO", {
+      ignoredIncomeKinds: new Set(["referral_card_cashback"]),
+    });
+    expect(report.incomeEvents).toHaveLength(1);
   });
 });
