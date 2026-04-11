@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autopilot-dev"
+version = "0.1.0"
+description = "An agent loop for running CLI coding agents driven by a markdown task plan."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["coding-agent", "ai", "automation", "cli", "copilot", "gemini"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Topic :: Software Development",
+]
+dependencies = []
+
+[project.scripts]
+autopilot = "autopilot_dev.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/tianhaoz95/vc"
+Repository = "https://github.com/tianhaoz95/vc"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["autopilot_dev*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

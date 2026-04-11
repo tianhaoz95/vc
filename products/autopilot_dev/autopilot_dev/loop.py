@@ -1,0 +1,133 @@
+"""Agent loop orchestration."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional
+
+from autopilot_dev.agents import AgentRunner, AgentSpec
+from autopilot_dev.plan import PlanManager
+from autopilot_dev.prompts import build_reviewer_prompt, build_worker_prompt
+from autopilot_dev.worklog import WorklogManager
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LoopConfig:
+    """Configuration for an :class:`AgentLoop` run.
+
+    Attributes:
+        plan_path: Path to the markdown plan file.
+        max_loops: Maximum number of worker→reviewer iterations.
+        worker_spec: Parsed :class:`AgentSpec` for the worker agent.
+        reviewer_spec: Parsed :class:`AgentSpec` for the reviewer agent.
+        workdir: Working directory used to locate ``worklog.md``.
+        agent_timeout: Optional timeout (seconds) for each agent invocation.
+    """
+
+    plan_path: str
+    max_loops: int
+    worker_spec: AgentSpec
+    reviewer_spec: AgentSpec
+    workdir: str = "."
+    agent_timeout: Optional[int] = None
+
+
+@dataclass
+class LoopResult:
+    """Result of a completed :class:`AgentLoop` run.
+
+    Attributes:
+        iterations_run: How many worker→reviewer cycles were executed.
+        all_tasks_done: Whether every task in the plan was completed.
+        stopped_early: Whether the loop exited before reaching *max_loops*.
+    """
+
+    iterations_run: int
+    all_tasks_done: bool
+    stopped_early: bool
+
+
+class AgentLoop:
+    """Orchestrate the worker ↔ reviewer coding-agent loop.
+
+    Each iteration:
+    1. Runs the *worker* agent with instructions to pick up the next open task,
+       check/create ``worklog.md``, implement the task, and mark it done.
+    2. Runs the *reviewer* agent to verify the work.  If the work passes, the
+       reviewer deletes ``worklog.md``.  Otherwise it writes findings back into
+       ``worklog.md`` and un-checks the task so the worker retries next round.
+
+    The loop ends when:
+    - All tasks in the plan are checked, OR
+    - *max_loops* iterations have been reached.
+
+    Args:
+        config: :class:`LoopConfig` with all run parameters.
+    """
+
+    def __init__(self, config: LoopConfig) -> None:
+        self.config = config
+        self._plan = PlanManager(config.plan_path)
+        self._worklog = WorklogManager(config.workdir)
+        self._worker = AgentRunner(
+            spec=config.worker_spec,
+            timeout=config.agent_timeout,
+        )
+        self._reviewer = AgentRunner(
+            spec=config.reviewer_spec,
+            timeout=config.agent_timeout,
+        )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def run(self) -> LoopResult:
+        """Execute the agent loop and return a :class:`LoopResult`."""
+        iterations_run = 0
+
+        for i in range(self.config.max_loops):
+            if self._plan.all_tasks_done():
+                logger.info("All tasks complete after %d iteration(s).", i)
+                return LoopResult(
+                    iterations_run=iterations_run,
+                    all_tasks_done=True,
+                    stopped_early=True,
+                )
+
+            logger.info("--- Iteration %d / %d ---", i + 1, self.config.max_loops)
+            self._run_worker()
+            self._run_reviewer()
+            iterations_run += 1
+
+        all_done = self._plan.all_tasks_done()
+        logger.info(
+            "Loop finished after %d iteration(s). All tasks done: %s",
+            iterations_run,
+            all_done,
+        )
+        return LoopResult(
+            iterations_run=iterations_run,
+            all_tasks_done=all_done,
+            stopped_early=False,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _run_worker(self) -> None:
+        prompt = build_worker_prompt(self.config.plan_path)
+        logger.info("Running worker agent: %s", self.config.worker_spec)
+        result = self._worker.run(prompt)
+        logger.info("Worker agent exited with code %s", result.returncode)
+
+    def _run_reviewer(self) -> None:
+        prompt = build_reviewer_prompt(self.config.plan_path)
+        logger.info("Running reviewer agent: %s", self.config.reviewer_spec)
+        result = self._reviewer.run(prompt)
+        logger.info("Reviewer agent exited with code %s", result.returncode)
