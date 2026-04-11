@@ -1,0 +1,20 @@
+{
+  "name": "crypto-tax-serverless",
+  "version": "1.0.0",
+  "description": "Serverless in-browser Crypto.com → TurboTax converter",
+  "main": "index.html",
+  "scripts": {
+    "test": "jest --coverage",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js"
+    ]
+  },
+  "license": "MIT"
+}
