@@ -46,7 +46,7 @@
         flex: 1;
         overflow-y: auto;
         padding: 48px 40px;
-        max-width: 900px;
+        min-width: 0;
       }
 
       .profile-header {
@@ -450,23 +450,96 @@
         text-align: center;
       }
 
+      /* ── Floating chat button (mobile only) ──────────────────── */
+      .chat-fab {
+        display: none;
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        z-index: 200;
+        transition: background 0.2s, transform 0.2s;
+      }
+
+      .chat-fab:hover { background: var(--accent-hover); transform: scale(1.08); }
+
+      .chat-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 150;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .chat-backdrop.backdrop-visible {
+        opacity: 1;
+      }
+
+      .close-sidebar-btn {
+        display: none;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 4px 10px;
+        transition: color 0.2s, border-color 0.2s;
+      }
+
+      .close-sidebar-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+      .sidebar-header-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
       /* ── Responsive ───────────────────────────────────────────── */
       @media (max-width: 768px) {
-        .app { flex-direction: column; }
-
         .profile-panel {
           padding: 24px 20px;
-          max-width: 100%;
-          height: 50vh;
+          height: 100vh;
           overflow-y: auto;
         }
 
         .ai-sidebar {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
           width: 100%;
-          height: 50vh;
+          height: 88vh;
           border-left: none;
           border-top: 1px solid var(--border);
+          border-radius: 16px 16px 0 0;
+          z-index: 160;
+          transform: translateY(100%);
+          transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
         }
+
+        .ai-sidebar.sidebar-visible {
+          transform: translateY(0);
+        }
+
+        .chat-fab { display: flex; }
+
+        .chat-backdrop { display: block; }
+
+        .close-sidebar-btn { display: block; }
 
         .profile-header { flex-direction: column; align-items: flex-start; }
       }
@@ -490,7 +563,10 @@
             </div>
             <p class="subtitle">Powered by on-device inference · your data stays local</p>
           </div>
-          <button class="clear-btn" id="clear-btn" title="Clear conversation">Clear</button>
+          <div class="sidebar-header-actions">
+            <button class="clear-btn" id="clear-btn" title="Clear conversation">Clear</button>
+            <button class="close-sidebar-btn" id="close-sidebar-btn" title="Close chat" aria-label="Close chat">✕</button>
+          </div>
         </div>
 
         <div id="model-status" class="model-status model-status-loading">
@@ -524,6 +600,9 @@
         </div>
       </aside>
     </div>
+
+    <div class="chat-backdrop" id="chat-backdrop"></div>
+    <button class="chat-fab" id="chat-fab" aria-label="Open AI chat">💬</button>
 
     <!-- ─────────────── Scripts (module type for ESM imports) ─────────── -->
     <script src="src/profile-data.js"></script>
@@ -632,6 +711,32 @@
     </script>
 
     <script type="module">
+      /* ── Mobile chat FAB toggle ───────────────────────────────── */
+      (function initMobileChat() {
+        const fab = document.getElementById('chat-fab');
+        const sidebar = document.querySelector('.ai-sidebar');
+        const backdrop = document.getElementById('chat-backdrop');
+        const closeBtn = document.getElementById('close-sidebar-btn');
+
+        if (!fab || !sidebar || !backdrop || !closeBtn) return;
+
+        function openSidebar() {
+          sidebar.classList.add('sidebar-visible');
+          backdrop.classList.add('backdrop-visible');
+          fab.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeSidebar() {
+          sidebar.classList.remove('sidebar-visible');
+          backdrop.classList.remove('backdrop-visible');
+          fab.setAttribute('aria-expanded', 'false');
+        }
+
+        fab.addEventListener('click', openSidebar);
+        backdrop.addEventListener('click', closeSidebar);
+        closeBtn.addEventListener('click', closeSidebar);
+      })();
+
       /* ── Wire up suggestion chips ─────────────────────────────── */
       document.querySelectorAll(".suggestion-chip").forEach((chip) => {
         chip.addEventListener("click", () => {
