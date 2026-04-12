@@ -906,6 +906,13 @@ const INCOME_KIND_GROUPS = [
   { label: "In-wallet swap (credit leg)", kinds: ["crypto_wallet_swap_credited"] },
   { label: "MCO staking reward", kinds: ["mco_stake_reward"] },
   { label: "VIBAN purchase (credited)", kinds: ["crypto_viban_exchange", "viban_purchase"] },
+  { label: "Airdrop", kinds: ["airdrop_to_exchange_transfer"] },
+  { label: "Trading incentive / rebate", kinds: ["trading_incentive_paid"] },
+  { label: "Gift card reward", kinds: ["gift_card_reward_to_app_credited"] },
+  { label: "Crypto.com Pay reward", kinds: ["pay_checkout_reward"] },
+  { label: "Dynamic coin swap (credited)", kinds: ["dynamic_coin_swap_credited"] },
+  { label: "Interest swap (credited)", kinds: ["interest_swap_credited"] },
+  { label: "Admin / promotional credit", kinds: ["admin_wallet_credited"] },
 ];
 
 INCOME_KIND_GROUPS.forEach((group) => {
@@ -1262,7 +1269,7 @@ function getIncomeKindLabel(kind) {
   for (const group of INCOME_KIND_GROUPS) {
     if (group.kinds.includes(kind)) return group.label;
   }
-  return kind || "Other";
+  return "Other";
 }
 
 /**

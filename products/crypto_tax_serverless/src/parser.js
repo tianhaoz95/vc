@@ -27,6 +27,8 @@ const SALE_KINDS = new Set([
   "card_top_up",                // top up Crypto.com Visa card with crypto
   "dust_conversion_debited",    // dust → CRO conversion (debit leg)
   "crypto_purchase",            // when Amount is negative (spending crypto to buy fiat)
+  "dynamic_coin_swap_debited",  // dynamic coin swap – debit leg (disposal)
+  "interest_swap_debited",      // interest swap – debit leg (disposal)
 ]);
 
 // Income receipts: treated as ordinary income at fair-market value
@@ -46,6 +48,13 @@ const INCOME_KINDS = new Set([
   "mco_stake_reward",                    // MCO staking reward
   "crypto_viban_exchange",               // VIBAN purchase credited
   "viban_purchase",                      // purchase via virtual IBAN
+  "airdrop_to_exchange_transfer",        // airdrop – ordinary income (Rev. Rul. 2019-24)
+  "trading_incentive_paid",              // trading rebate / incentive rewards
+  "gift_card_reward_to_app_credited",    // gift card reward credits
+  "pay_checkout_reward",                 // Crypto.com Pay checkout rewards
+  "dynamic_coin_swap_credited",          // dynamic coin swap – credit leg (income)
+  "interest_swap_credited",              // interest swap – credit leg (income)
+  "admin_wallet_credited",               // admin / promotional credits
 ]);
 
 // Non-taxable: deposits, withdrawals, fiat moves – no tax event
@@ -63,6 +72,8 @@ const IGNORED_KINDS = new Set([
   "lockup_unlock",
   "lockup_upgrade",
   "dynamic_coin_swap_bonus_exchange_deposit",
+  "crypto_earn_program_created",   // locking up crypto for Earn (non-taxable transfer)
+  "crypto_earn_program_withdrawn", // Earn principal returned (non-taxable transfer)
 ]);
 
 /**

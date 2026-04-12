@@ -215,6 +215,14 @@ describe("CryptoTransaction.isSale", () => {
     expect(makeTx("card_top_up", -50).isSale).toBe(true);
   });
 
+  test("dynamic_coin_swap_debited is a sale", () => {
+    expect(makeTx("dynamic_coin_swap_debited", -1).isSale).toBe(true);
+  });
+
+  test("interest_swap_debited is a sale", () => {
+    expect(makeTx("interest_swap_debited", -1).isSale).toBe(true);
+  });
+
   test("crypto_deposit is NOT a sale", () => {
     expect(makeTx("crypto_deposit", 1).isSale).toBe(false);
   });
@@ -250,12 +258,48 @@ describe("CryptoTransaction.isIncome", () => {
     expect(makeTx("mco_stake_reward").isIncome).toBe(true);
   });
 
+  test("airdrop_to_exchange_transfer is income", () => {
+    expect(makeTx("airdrop_to_exchange_transfer").isIncome).toBe(true);
+  });
+
+  test("trading_incentive_paid is income", () => {
+    expect(makeTx("trading_incentive_paid").isIncome).toBe(true);
+  });
+
+  test("gift_card_reward_to_app_credited is income", () => {
+    expect(makeTx("gift_card_reward_to_app_credited").isIncome).toBe(true);
+  });
+
+  test("pay_checkout_reward is income", () => {
+    expect(makeTx("pay_checkout_reward").isIncome).toBe(true);
+  });
+
+  test("dynamic_coin_swap_credited is income", () => {
+    expect(makeTx("dynamic_coin_swap_credited").isIncome).toBe(true);
+  });
+
+  test("interest_swap_credited is income", () => {
+    expect(makeTx("interest_swap_credited").isIncome).toBe(true);
+  });
+
+  test("admin_wallet_credited is income", () => {
+    expect(makeTx("admin_wallet_credited").isIncome).toBe(true);
+  });
+
   test("crypto_purchase is NOT income", () => {
     expect(makeTx("crypto_purchase").isIncome).toBe(false);
   });
 
   test("crypto_deposit is NOT income", () => {
     expect(makeTx("crypto_deposit").isIncome).toBe(false);
+  });
+
+  test("crypto_earn_program_created is NOT income", () => {
+    expect(makeTx("crypto_earn_program_created").isIncome).toBe(false);
+  });
+
+  test("crypto_earn_program_withdrawn is NOT income", () => {
+    expect(makeTx("crypto_earn_program_withdrawn").isIncome).toBe(false);
   });
 });
 
