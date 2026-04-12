@@ -585,6 +585,60 @@
       text-align: center;
       padding: 16px 0;
     }
+    .legend-row.clickable-legend-row {
+      cursor: pointer;
+      border-radius: 6px;
+      padding: 4px 6px;
+      margin: -4px -6px;
+      transition: background 0.15s;
+      outline-offset: 2px;
+    }
+    .legend-row.clickable-legend-row:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    .legend-row.clickable-legend-row:focus-visible {
+      outline: 2px solid var(--accent);
+    }
+    .legend-row.legend-row-selected {
+      background: rgba(59,130,246,0.12);
+      border-left: 3px solid var(--accent);
+      padding-left: 9px;
+      margin-left: -9px;
+    }
+    .chart-tx-section {
+      width: 100%;
+      margin-top: 8px;
+    }
+    .chart-tx-hint {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 12px 0 4px;
+    }
+    .chart-tx-title {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .chart-tx-title strong { color: var(--text); }
+    .chart-tx-count {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.75rem;
+      padding: 1px 7px;
+      color: var(--text-muted);
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .chart-tx-table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      max-height: 300px;
+      overflow-y: auto;
+    }
   </style>
 </head>
 <body>
@@ -738,6 +792,9 @@
         <svg id="chart-svg" viewBox="-1 -1 2 2" width="220" height="220" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="chart-legend" id="chart-legend"></div>
+      <div class="chart-tx-section" id="chart-tx-section">
+        <p class="chart-tx-hint">Click a category above to view its transactions.</p>
+      </div>
     </div>
   </div>
 </div>
@@ -1210,49 +1267,60 @@ function getIncomeKindLabel(kind) {
 
 /**
  * Build breakdown data for the pie chart from a TaxReport.
- * Returns [{label, value}] sorted by absolute value descending.
+ * Returns [{label, value, events}] sorted by absolute value descending.
  */
 function buildBreakdownData(chartKey, report) {
-  const map = new Map();
+  const map = new Map(); // label -> { value, events }
 
   if (chartKey === "income") {
     // Group income events by income kind label
     for (const evt of report.incomeEvents) {
       const label = getIncomeKindLabel(evt.transactionKind);
-      map.set(label, (map.get(label) || 0) + evt.fairMarketValueUsd);
+      if (!map.has(label)) map.set(label, { value: 0, events: [] });
+      const entry = map.get(label);
+      entry.value += evt.fairMarketValueUsd;
+      entry.events.push(evt);
     }
   } else if (chartKey === "short-term") {
     // Group short-term capital events by currency
     for (const evt of report.taxEvents) {
       if (!evt.isLongTerm) {
-        map.set(evt.currency, (map.get(evt.currency) || 0) + evt.gainLossUsd);
+        if (!map.has(evt.currency)) map.set(evt.currency, { value: 0, events: [] });
+        const entry = map.get(evt.currency);
+        entry.value += evt.gainLossUsd;
+        entry.events.push(evt);
       }
     }
   } else if (chartKey === "long-term") {
     // Group long-term capital events by currency
     for (const evt of report.taxEvents) {
       if (evt.isLongTerm) {
-        map.set(evt.currency, (map.get(evt.currency) || 0) + evt.gainLossUsd);
+        if (!map.has(evt.currency)) map.set(evt.currency, { value: 0, events: [] });
+        const entry = map.get(evt.currency);
+        entry.value += evt.gainLossUsd;
+        entry.events.push(evt);
       }
     }
   } else if (chartKey === "total-gain") {
     // Short-term vs long-term breakdown
+    const stEvents = report.taxEvents.filter((e) => !e.isLongTerm);
+    const ltEvents = report.taxEvents.filter((e) => e.isLongTerm);
     const st = report.totalShortTermGainLoss;
     const lt = report.totalLongTermGainLoss;
-    if (st !== 0) map.set("Short-term", st);
-    if (lt !== 0) map.set("Long-term", lt);
+    if (st !== 0) map.set("Short-term", { value: st, events: stEvents });
+    if (lt !== 0) map.set("Long-term", { value: lt, events: ltEvents });
   }
 
   return Array.from(map.entries())
-    .map(([label, value]) => ({ label, value }))
+    .map(([label, { value, events }]) => ({ label, value, events }))
     .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
 }
 
 /**
  * Render an SVG pie chart into svgEl and a legend into legendEl.
- * data: [{label, value, color}]
+ * data: [{label, value, color, events}]
  */
-function renderPieChart(svgEl, legendEl, data) {
+function renderPieChart(svgEl, legendEl, data, chartKey) {
   svgEl.innerHTML = "";
   legendEl.innerHTML = "";
 
@@ -1295,15 +1363,91 @@ function renderPieChart(svgEl, legendEl, data) {
   data.forEach((d) => {
     const pct = (Math.abs(d.value) / total * 100).toFixed(1);
     const row = document.createElement("div");
-    row.className = "legend-row";
+    row.className = "legend-row clickable-legend-row";
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-label", `${d.label}: ${fmtMoney(d.value)} — click to view transactions`);
     row.innerHTML = `
       <span class="legend-color" style="background:${escHtml(d.color)}"></span>
       <span class="legend-label" title="${escHtml(d.label)}">${escHtml(d.label)}</span>
       <span class="legend-pct">${pct}%</span>
       <span class="legend-value">${fmtMoney(d.value)}</span>
     `;
+
+    const handleClick = () => {
+      legendEl.querySelectorAll(".legend-row").forEach((r) => r.classList.remove("legend-row-selected"));
+      row.classList.add("legend-row-selected");
+      renderCategoryTransactions(d, chartKey);
+    };
+    row.addEventListener("click", handleClick);
+    row.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); }
+    });
     legendEl.appendChild(row);
   });
+}
+
+/**
+ * Render the transaction list for a selected pie-chart category into #chart-tx-section.
+ * categoryData: {label, value, color, events}
+ * chartKey: "income" | "short-term" | "long-term" | "total-gain"
+ */
+function renderCategoryTransactions(categoryData, chartKey) {
+  const section = document.getElementById("chart-tx-section");
+  const events = categoryData.events || [];
+
+  if (events.length === 0) {
+    section.innerHTML = `<p class="chart-tx-hint">No transactions found for <strong>${escHtml(categoryData.label)}</strong>.</p>`;
+    return;
+  }
+
+  let html = `<div class="chart-tx-title">Transactions: <strong>${escHtml(categoryData.label)}</strong><span class="chart-tx-count">${events.length}</span></div>`;
+  html += `<div class="chart-tx-table-wrap"><table>`;
+
+  if (chartKey === "income") {
+    html += `<thead><tr>
+      <th>Date</th>
+      <th>Description</th>
+      <th>Currency</th>
+      <th>Quantity</th>
+      <th>Fair Market Value</th>
+    </tr></thead><tbody>`;
+    for (const evt of events) {
+      html += `<tr>
+        <td>${escHtml(fmtDate(evt.dateReceived))}</td>
+        <td>${escHtml(evt.description || "")}</td>
+        <td>${escHtml(evt.currency)}</td>
+        <td>${escHtml(fmtQty(evt.quantity))}</td>
+        <td>${escHtml(fmtMoney(evt.fairMarketValueUsd))}</td>
+      </tr>`;
+    }
+  } else {
+    // Capital gain events (TaxEvent): short-term, long-term, total-gain
+    html += `<thead><tr>
+      <th>Date Acquired</th>
+      <th>Date Sold</th>
+      <th>Currency</th>
+      <th>Qty</th>
+      <th>Proceeds</th>
+      <th>Cost Basis</th>
+      <th>Gain/Loss</th>
+    </tr></thead><tbody>`;
+    for (const evt of events) {
+      const gainClass = evt.gainLossUsd >= 0 ? "gain" : "loss";
+      html += `<tr>
+        <td>${escHtml(fmtDate(evt.dateAcquired))}</td>
+        <td>${escHtml(fmtDate(evt.dateSold))}</td>
+        <td>${escHtml(evt.currency)}</td>
+        <td>${escHtml(fmtQty(evt.quantity))}</td>
+        <td>${escHtml(fmtMoney(evt.proceedsUsd))}</td>
+        <td>${escHtml(fmtMoney(evt.costBasisUsd))}</td>
+        <td class="${gainClass}">${escHtml(fmtMoney(evt.gainLossUsd))}</td>
+      </tr>`;
+    }
+  }
+
+  html += `</tbody></table></div>`;
+  section.innerHTML = html;
 }
 
 /**
@@ -1325,8 +1469,12 @@ function openBreakdownChart(title, chartKey, report) {
   renderPieChart(
     document.getElementById("chart-svg"),
     document.getElementById("chart-legend"),
-    data
+    data,
+    chartKey
   );
+
+  document.getElementById("chart-tx-section").innerHTML =
+    `<p class="chart-tx-hint">Click a category above to view its transactions.</p>`;
 
   const modal = document.getElementById("chart-modal");
   modal.style.display = "flex";
