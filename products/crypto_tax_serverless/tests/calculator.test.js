@@ -542,3 +542,264 @@ describe("calculateTaxes with ignoredIncomeKinds", () => {
     expect(report.incomeEvents).toHaveLength(1);
   });
 });
+
+// ── card_rebate (Amazon Prime, Netflix, etc.) ─────────────────────────────────
+
+describe("card_rebate income events", () => {
+  const amazonPrimeTx = tx({
+    timestamp: dt(2023, 3, 1),
+    currency: "CRO",
+    amount: 10,
+    nativeUsd: 5,
+    kind: "card_rebate",
+    description: "Card Rebate: Amazon Prime",
+  });
+
+  const netflixTx = tx({
+    timestamp: dt(2023, 4, 1),
+    currency: "CRO",
+    amount: 8,
+    nativeUsd: 4,
+    kind: "card_rebate",
+    description: "Card Rebate: Netflix",
+  });
+
+  const cashbackTx = tx({
+    timestamp: dt(2023, 5, 1),
+    currency: "CRO",
+    amount: 50,
+    nativeUsd: 25,
+    kind: "referral_card_cashback",
+    description: "CRO Cashback",
+  });
+
+  test("card_rebate transactions are counted as ordinary income by default", () => {
+    const report = calculateTaxes([amazonPrimeTx, netflixTx], "FIFO");
+    expect(report.incomeEvents).toHaveLength(2);
+    expect(report.totalOrdinaryIncome).toBeCloseTo(9);
+  });
+
+  test("card_rebate description is preserved in income event", () => {
+    const report = calculateTaxes([amazonPrimeTx], "FIFO");
+    expect(report.incomeEvents[0].description).toBe("Card Rebate: Amazon Prime");
+  });
+
+  test("ignoring card_rebate excludes Amazon Prime and Netflix rebates from income", () => {
+    const report = calculateTaxes([amazonPrimeTx, netflixTx, cashbackTx], "FIFO", {
+      ignoredIncomeKinds: ["card_rebate"],
+    });
+    expect(report.incomeEvents).toHaveLength(1);
+    expect(report.incomeEvents[0].description).toBe("CRO Cashback");
+    expect(report.totalOrdinaryIncome).toBeCloseTo(25);
+  });
+
+  test("ignoring both card_rebate and referral_card_cashback excludes all cashback income", () => {
+    const report = calculateTaxes([amazonPrimeTx, netflixTx, cashbackTx], "FIFO", {
+      ignoredIncomeKinds: ["card_rebate", "referral_card_cashback"],
+    });
+    expect(report.incomeEvents).toHaveLength(0);
+    expect(report.totalOrdinaryIncome).toBe(0);
+  });
+
+  test("ignored card_rebate crypto is tracked as $0-cost-basis lot for future disposal", () => {
+    const txsWithSale = [
+      tx({ timestamp: dt(2023, 1, 1), currency: "CRO", amount: 10, nativeUsd: 5, kind: "card_rebate", description: "Card Rebate: Amazon Prime" }),
+      tx({ timestamp: dt(2024, 1, 1), currency: "CRO", amount: -10, nativeUsd: 15, kind: "crypto_exchange" }),
+    ];
+    const report = calculateTaxes(txsWithSale, "FIFO", {
+      ignoredIncomeKinds: ["card_rebate"],
+    });
+    expect(report.incomeEvents).toHaveLength(0);
+    // $0 cost basis, sold for $15 → gain = $15
+    expect(report.taxEvents).toHaveLength(1);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(15);
+    expect(report.taxEvents[0].costBasisUsd).toBeCloseTo(0);
+  });
+
+  test("card_rebate and referral_card_cashback coexist and are independently ignorable", () => {
+    const all = [amazonPrimeTx, netflixTx, cashbackTx];
+    const reportAll = calculateTaxes(all, "FIFO");
+    expect(reportAll.incomeEvents).toHaveLength(3);
+    expect(reportAll.totalOrdinaryIncome).toBeCloseTo(34);
+
+    const reportNoCashback = calculateTaxes(all, "FIFO", {
+      ignoredIncomeKinds: ["referral_card_cashback"],
+    });
+    expect(reportNoCashback.incomeEvents).toHaveLength(2);
+    expect(reportNoCashback.totalOrdinaryIncome).toBeCloseTo(9);
+
+    const reportNoRebate = calculateTaxes(all, "FIFO", {
+      ignoredIncomeKinds: ["card_rebate"],
+    });
+    expect(reportNoRebate.incomeEvents).toHaveLength(1);
+    expect(reportNoRebate.totalOrdinaryIncome).toBeCloseTo(25);
+  });
+});
+
+// ── Additional tax calculation correctness tests ──────────────────────────────
+
+describe("Short-term vs long-term holding period classification", () => {
+  test("asset held exactly 365 days is short-term", () => {
+    const buy = dt(2022, 1, 1);
+    const sell = new Date(buy.getTime() + 365 * 24 * 60 * 60 * 1000);
+    const txs = [
+      tx({ timestamp: buy, currency: "ETH", amount: 1, nativeUsd: -2000, kind: "crypto_purchase" }),
+      new CryptoTransaction({ timestamp: sell, description: "sell", currency: "ETH", amount: -1, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 3000, nativeAmountUsd: 3000, transactionKind: "crypto_to_fiat_exchange" }),
+    ];
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.taxEvents[0].isLongTerm).toBe(false);
+    expect(report.totalShortTermGainLoss).toBeCloseTo(1000);
+    expect(report.totalLongTermGainLoss).toBe(0);
+  });
+
+  test("asset held 366 days is long-term", () => {
+    const buy = dt(2022, 1, 1);
+    const sell = new Date(buy.getTime() + 366 * 24 * 60 * 60 * 1000);
+    const txs = [
+      tx({ timestamp: buy, currency: "ETH", amount: 1, nativeUsd: -2000, kind: "crypto_purchase" }),
+      new CryptoTransaction({ timestamp: sell, description: "sell", currency: "ETH", amount: -1, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 3000, nativeAmountUsd: 3000, transactionKind: "crypto_to_fiat_exchange" }),
+    ];
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.taxEvents[0].isLongTerm).toBe(true);
+    expect(report.totalLongTermGainLoss).toBeCloseTo(1000);
+    expect(report.totalShortTermGainLoss).toBe(0);
+  });
+});
+
+describe("Multiple income kinds combined", () => {
+  const txs = [
+    tx({ timestamp: dt(2023, 1, 1), currency: "CRO", amount: 100, nativeUsd: 50, kind: "referral_card_cashback", description: "CRO Cashback" }),
+    tx({ timestamp: dt(2023, 2, 1), currency: "CRO", amount: 20, nativeUsd: 10, kind: "card_rebate", description: "Card Rebate: Amazon Prime" }),
+    tx({ timestamp: dt(2023, 3, 1), currency: "CRO", amount: 15, nativeUsd: 7.5, kind: "card_rebate", description: "Card Rebate: Netflix" }),
+    tx({ timestamp: dt(2023, 4, 1), currency: "ETH", amount: 0.5, nativeUsd: 900, kind: "crypto_earn_interest_paid" }),
+    tx({ timestamp: dt(2023, 5, 1), currency: "BTC", amount: 0.01, nativeUsd: 300, kind: "referral_gift" }),
+  ];
+
+  test("all income kinds are reported when no filter applied", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.incomeEvents).toHaveLength(5);
+    expect(report.totalOrdinaryIncome).toBeCloseTo(50 + 10 + 7.5 + 900 + 300);
+  });
+
+  test("ignoring cashback kinds leaves interest and referral income intact", () => {
+    const report = calculateTaxes(txs, "FIFO", {
+      ignoredIncomeKinds: ["referral_card_cashback", "card_rebate"],
+    });
+    expect(report.incomeEvents).toHaveLength(2);
+    expect(report.totalOrdinaryIncome).toBeCloseTo(900 + 300);
+  });
+
+  test("totalGainLoss equals shortTerm + longTerm gain/loss", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.totalGainLoss).toBeCloseTo(
+      report.totalShortTermGainLoss + report.totalLongTermGainLoss
+    );
+  });
+});
+
+describe("Capital gain/loss with staking income then sale", () => {
+  test("staking income sets cost basis; subsequent sale produces correct gain", () => {
+    const txs = [
+      tx({ timestamp: dt(2022, 1, 1), currency: "ETH", amount: 2, nativeUsd: 4000, kind: "crypto_earn_interest_paid" }),
+      new CryptoTransaction({ timestamp: dt(2023, 6, 1), description: "sell staking rewards", currency: "ETH", amount: -2, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 6000, nativeAmountUsd: 6000, transactionKind: "crypto_to_fiat_exchange" }),
+    ];
+    const report = calculateTaxes(txs, "FIFO");
+    // Income: 2 ETH @ $2000/ETH = $4000
+    expect(report.totalOrdinaryIncome).toBeCloseTo(4000);
+    // Sale: 2 ETH @ $3000 proceeds vs $2000 cost basis → $2000 long-term gain (held > 365 days)
+    expect(report.taxEvents).toHaveLength(1);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(2000);
+    expect(report.taxEvents[0].isLongTerm).toBe(true);
+  });
+});
+
+describe("FIFO vs LIFO vs HIFO lot ordering", () => {
+  // Buy 1 BTC cheap, then 1 BTC expensive, then sell 1 BTC
+  const txs = [
+    tx({ timestamp: dt(2021, 1, 1), currency: "BTC", amount: 1, nativeUsd: -10000, kind: "crypto_purchase" }),
+    tx({ timestamp: dt(2022, 1, 1), currency: "BTC", amount: 1, nativeUsd: -40000, kind: "crypto_purchase" }),
+    new CryptoTransaction({ timestamp: dt(2022, 6, 1), description: "sell", currency: "BTC", amount: -1, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 50000, nativeAmountUsd: 50000, transactionKind: "crypto_to_fiat_exchange" }),
+  ];
+
+  test("FIFO uses oldest lot first → gain = $40,000", () => {
+    const report = calculateTaxes(txs, "FIFO");
+    expect(report.taxEvents[0].costBasisUsd).toBeCloseTo(10000);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(40000);
+  });
+
+  test("LIFO uses newest lot first → gain = $10,000", () => {
+    const report = calculateTaxes(txs, "LIFO");
+    expect(report.taxEvents[0].costBasisUsd).toBeCloseTo(40000);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(10000);
+  });
+
+  test("HIFO uses highest-cost lot first → gain = $10,000", () => {
+    const report = calculateTaxes(txs, "HIFO");
+    expect(report.taxEvents[0].costBasisUsd).toBeCloseTo(40000);
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(10000);
+  });
+});
+
+describe("crypto-to-crypto swap tax treatment", () => {
+  test("swapping BTC for ETH triggers a capital-gain event and creates ETH acquisition lot", () => {
+    const txs = [
+      tx({ timestamp: dt(2021, 1, 1), currency: "BTC", amount: 1, nativeUsd: -30000, kind: "crypto_purchase" }),
+      new CryptoTransaction({
+        timestamp: dt(2022, 6, 1),
+        description: "BTC→ETH swap",
+        currency: "BTC",
+        amount: -1,
+        toCurrency: "ETH",
+        toAmount: 20,
+        nativeCurrency: "USD",
+        nativeAmount: -50000,
+        nativeAmountUsd: 50000,
+        transactionKind: "crypto_exchange",
+      }),
+      new CryptoTransaction({ timestamp: dt(2023, 1, 1), description: "sell ETH", currency: "ETH", amount: -20, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 60000, nativeAmountUsd: 60000, transactionKind: "crypto_to_fiat_exchange" }),
+    ];
+    const report = calculateTaxes(txs, "FIFO");
+    // BTC disposal: $50k proceeds vs $30k cost → $20k gain (long-term, held > 365 days)
+    expect(report.taxEvents[0].gainLossUsd).toBeCloseTo(20000);
+    expect(report.taxEvents[0].isLongTerm).toBe(true);
+    // ETH disposal: $60k proceeds vs $50k cost (FMV from BTC swap) → $10k gain
+    expect(report.taxEvents[1].gainLossUsd).toBeCloseTo(10000);
+    expect(report.totalGainLoss).toBeCloseTo(30000);
+  });
+});
+
+describe("filterReportByYear", () => {
+  const txs = [
+    tx({ timestamp: dt(2021, 6, 1), currency: "BTC", amount: 1, nativeUsd: -30000, kind: "crypto_purchase" }),
+    new CryptoTransaction({ timestamp: dt(2022, 3, 1), description: "sell 2022", currency: "BTC", amount: -0.5, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 25000, nativeAmountUsd: 25000, transactionKind: "crypto_to_fiat_exchange" }),
+    new CryptoTransaction({ timestamp: dt(2023, 3, 1), description: "sell 2023", currency: "BTC", amount: -0.5, toCurrency: null, toAmount: null, nativeCurrency: "USD", nativeAmount: 15000, nativeAmountUsd: 15000, transactionKind: "crypto_to_fiat_exchange" }),
+    tx({ timestamp: dt(2022, 1, 1), currency: "ETH", amount: 1, nativeUsd: 1000, kind: "crypto_earn_interest_paid" }),
+    tx({ timestamp: dt(2023, 1, 1), currency: "ETH", amount: 0.5, nativeUsd: 800, kind: "crypto_earn_interest_paid" }),
+  ];
+
+  test("filtering by 2022 returns only 2022 disposal and income events", () => {
+    const full = calculateTaxes(txs, "FIFO");
+    const report2022 = filterReportByYear(full, 2022);
+    expect(report2022.taxEvents).toHaveLength(1);
+    expect(report2022.taxEvents[0].dateSold.getUTCFullYear()).toBe(2022);
+    expect(report2022.incomeEvents).toHaveLength(1);
+    expect(report2022.incomeEvents[0].dateReceived.getUTCFullYear()).toBe(2022);
+    expect(report2022.totalOrdinaryIncome).toBeCloseTo(1000);
+  });
+
+  test("filtering by 2023 returns only 2023 disposal and income events", () => {
+    const full = calculateTaxes(txs, "FIFO");
+    const report2023 = filterReportByYear(full, 2023);
+    expect(report2023.taxEvents).toHaveLength(1);
+    expect(report2023.taxEvents[0].dateSold.getUTCFullYear()).toBe(2023);
+    expect(report2023.incomeEvents).toHaveLength(1);
+    expect(report2023.totalOrdinaryIncome).toBeCloseTo(800);
+  });
+
+  test("null year returns unfiltered report", () => {
+    const full = calculateTaxes(txs, "FIFO");
+    const report = filterReportByYear(full, null);
+    expect(report.taxEvents).toHaveLength(full.taxEvents.length);
+    expect(report.incomeEvents).toHaveLength(full.incomeEvents.length);
+  });
+});
