@@ -616,7 +616,10 @@ describe("card_rebate income events", () => {
     expect(report.taxEvents[0].costBasisUsd).toBeCloseTo(0);
   });
 
-  test("card_rebate and referral_card_cashback coexist and are independently ignorable", () => {
+  test("ignoring referral_card_cashback (CRO reward) also excludes card_rebate (Netflix/Spotify/Amazon)", () => {
+    // When the user unchecks "CRO reward" in the UI, card_rebate subscription
+    // rebates (Netflix, Spotify, Amazon Prime) must also be excluded because
+    // both are CRO card reward benefits controlled by the same toggle.
     const all = [amazonPrimeTx, netflixTx, cashbackTx];
     const reportAll = calculateTaxes(all, "FIFO");
     expect(reportAll.incomeEvents).toHaveLength(3);
@@ -625,14 +628,72 @@ describe("card_rebate income events", () => {
     const reportNoCashback = calculateTaxes(all, "FIFO", {
       ignoredIncomeKinds: ["referral_card_cashback"],
     });
-    expect(reportNoCashback.incomeEvents).toHaveLength(2);
-    expect(reportNoCashback.totalOrdinaryIncome).toBeCloseTo(9);
+    // All three events (cashback + 2 rebates) should be excluded
+    expect(reportNoCashback.incomeEvents).toHaveLength(0);
+    expect(reportNoCashback.totalOrdinaryIncome).toBe(0);
 
+    // Ignoring only card_rebate still leaves the CRO cashback event
     const reportNoRebate = calculateTaxes(all, "FIFO", {
       ignoredIncomeKinds: ["card_rebate"],
     });
     expect(reportNoRebate.incomeEvents).toHaveLength(1);
     expect(reportNoRebate.totalOrdinaryIncome).toBeCloseTo(25);
+  });
+
+  test("unchecking CRO reward excludes Netflix, Spotify, and Amazon Prime rebates", () => {
+    // Regression test: verifies the exact user-facing scenario reported as a bug.
+    // Unchecking the CRO reward option should exclude ALL subscription rebates
+    // paid via card_rebate even when card_rebate is not listed explicitly.
+    const netflixRebate = tx({
+      timestamp: dt(2024, 1, 10),
+      currency: "CRO",
+      amount: 12,
+      nativeUsd: 6,
+      kind: "card_rebate",
+      description: "Card Rebate: Netflix",
+    });
+    const spotifyRebate = tx({
+      timestamp: dt(2024, 2, 10),
+      currency: "CRO",
+      amount: 10,
+      nativeUsd: 5,
+      kind: "card_rebate",
+      description: "Card Rebate: Spotify",
+    });
+    const amazonRebate = tx({
+      timestamp: dt(2024, 3, 10),
+      currency: "CRO",
+      amount: 15,
+      nativeUsd: 7.5,
+      kind: "card_rebate",
+      description: "Card Rebate: Amazon Prime",
+    });
+    const croCashback = tx({
+      timestamp: dt(2024, 4, 1),
+      currency: "CRO",
+      amount: 80,
+      nativeUsd: 40,
+      kind: "referral_card_cashback",
+      description: "CRO Cashback",
+    });
+
+    // Without any filter: all four events are ordinary income
+    const reportAll = calculateTaxes(
+      [netflixRebate, spotifyRebate, amazonRebate, croCashback],
+      "FIFO"
+    );
+    expect(reportAll.incomeEvents).toHaveLength(4);
+    expect(reportAll.totalOrdinaryIncome).toBeCloseTo(6 + 5 + 7.5 + 40);
+
+    // User unchecks "CRO reward" → only referral_card_cashback in ignoredIncomeKinds.
+    // Netflix, Spotify, and Amazon Prime rebates must also disappear.
+    const reportCroUnchecked = calculateTaxes(
+      [netflixRebate, spotifyRebate, amazonRebate, croCashback],
+      "FIFO",
+      { ignoredIncomeKinds: ["referral_card_cashback"] }
+    );
+    expect(reportCroUnchecked.incomeEvents).toHaveLength(0);
+    expect(reportCroUnchecked.totalOrdinaryIncome).toBe(0);
   });
 });
 
