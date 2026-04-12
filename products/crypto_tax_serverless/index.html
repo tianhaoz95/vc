@@ -192,8 +192,8 @@
       align-items: center;
       gap: 10px;
     }
-    .year-input-wrap input[type="number"] {
-      width: 110px;
+    .year-input-wrap select {
+      width: 140px;
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -202,8 +202,13 @@
       padding: 8px 12px;
       outline: none;
       transition: border-color 0.2s;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 16px;
     }
-    .year-input-wrap input[type="number"]:focus { border-color: var(--accent); }
+    .year-input-wrap select:focus { border-color: var(--accent); }
     .year-input-wrap .year-hint {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -510,8 +515,10 @@
       <div class="options-group">
         <h3>Tax Year Filter</h3>
         <div class="year-input-wrap">
-          <input type="number" id="tax-year-input" placeholder="e.g. 2025" min="2010" max="2099" step="1" />
-          <span class="year-hint">Leave blank to include all years</span>
+          <select id="tax-year-select">
+            <option value="all">All Years</option>
+          </select>
+          <span class="year-hint">Available years inferred from files</span>
         </div>
       </div>
       <!-- Ignored income categories -->
@@ -631,7 +638,7 @@ const fileNameDisplay = document.getElementById("file-name-display");
 const fileListEl = document.getElementById("file-list");
 const fileListItems = document.getElementById("file-list-items");
 const methodGrid = document.getElementById("method-grid");
-const taxYearInput = document.getElementById("tax-year-input");
+const taxYearSelect = document.getElementById("tax-year-select");
 const incomeKindsList = document.getElementById("income-kinds-list");
 const rulesSection = document.getElementById("rules-section");
 const rulesContent = document.getElementById("rules-content");
@@ -724,6 +731,36 @@ INCOME_KIND_GROUPS.forEach((group) => {
 });
 
 // ── File upload ───────────────────────────────────────────────────────────────
+function updateTaxYearDropdown() {
+  const allYears = new Set();
+  loadedFiles.forEach(f => {
+    if (!f.years) {
+      try {
+        const txs = parseCsv(f.content);
+        f.years = new Set(txs.map(tx => tx.timestamp.getUTCFullYear()));
+      } catch (e) {
+        f.years = new Set();
+      }
+    }
+    f.years.forEach(y => allYears.add(y));
+  });
+
+  const sortedYears = Array.from(allYears).sort((a, b) => b - a);
+  const currentVal = taxYearSelect.value;
+  
+  taxYearSelect.innerHTML = '<option value="all">All Years</option>';
+  sortedYears.forEach(year => {
+    const opt = document.createElement("option");
+    opt.value = year;
+    opt.textContent = year;
+    taxYearSelect.appendChild(opt);
+  });
+  
+  if (Array.from(taxYearSelect.options).some(opt => opt.value === currentVal)) {
+    taxYearSelect.value = currentVal;
+  }
+}
+
 function updateFileUI() {
   fileListItems.innerHTML = "";
   if (loadedFiles.length === 0) {
@@ -731,6 +768,7 @@ function updateFileUI() {
     fileNameDisplay.textContent = "";
     dropZone.classList.remove("has-file");
     convertBtn.disabled = true;
+    updateTaxYearDropdown();
     return;
   }
   fileListEl.style.display = "block";
@@ -761,6 +799,8 @@ function updateFileUI() {
 
     fileListItems.appendChild(li);
   });
+
+  updateTaxYearDropdown();
 }
 
 function readFiles(files) {
@@ -844,8 +884,8 @@ convertBtn.addEventListener("click", () => {
         });
 
       // Read optional tax year filter
-      const taxYearRaw = taxYearInput.value.trim();
-      const taxYear = taxYearRaw !== "" ? parseInt(taxYearRaw, 10) : null;
+      const taxYearRaw = taxYearSelect.value;
+      const taxYear = taxYearRaw !== "all" ? parseInt(taxYearRaw, 10) : null;
 
       showStatus(
         `⏳ Calculating taxes using ${selectedMethod} for ${allTransactions.length} transactions` +
