@@ -1,0 +1,28 @@
+name: Deploy AI Profile
+
+on:
+  push:
+    paths:
+      - 'products/ai_profile/**'
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: products/ai_profile
+        run: npm install
+
+      - name: Run tests
+        working-directory: products/ai_profile
+        run: npm test
+
+      - name: Deploy to Firebase Hosting
+        working-directory: products/ai_profile
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: npx -y firebase-tools@latest deploy --only hosting:vc-ai-profile --token $FIREBASE_TOKEN --project vc-project-platform
