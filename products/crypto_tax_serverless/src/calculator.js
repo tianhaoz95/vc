@@ -173,12 +173,13 @@ class TaxEvent {
  * Represents crypto received as ordinary income.
  */
 class IncomeEvent {
-  constructor({ currency, description, dateReceived, quantity, fairMarketValueUsd }) {
+  constructor({ currency, description, dateReceived, quantity, fairMarketValueUsd, transactionKind }) {
     this.currency = currency;
     this.description = description;
     this.dateReceived = dateReceived; // Date
     this.quantity = quantity;
     this.fairMarketValueUsd = fairMarketValueUsd;
+    this.transactionKind = transactionKind || ""; // machine-readable event type
   }
 }
 
@@ -358,6 +359,7 @@ function calculateTaxes(transactions, method = "FIFO", options = {}) {
             dateReceived: ts,
             quantity: Math.abs(amount),
             fairMarketValueUsd: round8(incomeUsd),
+            transactionKind: tx.transactionKind,
           })
         );
         // Income receipts also become acquisition lots (FMV = cost basis)
