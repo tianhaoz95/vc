@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "vc-ai-profile",
+    "site": "vc-developer-profile",
     "public": ".",
     "ignore": [
       "firebase.json",
