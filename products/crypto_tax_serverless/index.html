@@ -792,7 +792,7 @@
         <svg id="chart-svg" viewBox="-1 -1 2 2" width="220" height="220" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <div class="chart-legend" id="chart-legend"></div>
-      <div class="chart-tx-section" id="chart-tx-section">
+      <div class="chart-tx-section" id="chart-tx-section" aria-live="polite">
         <p class="chart-tx-hint">Click a category above to view its transactions.</p>
       </div>
     </div>
@@ -1360,12 +1360,14 @@ function renderPieChart(svgEl, legendEl, data, chartKey) {
   });
 
   // Build legend
+  let selectedRow = null;
   data.forEach((d) => {
     const pct = (Math.abs(d.value) / total * 100).toFixed(1);
     const row = document.createElement("div");
     row.className = "legend-row clickable-legend-row";
     row.setAttribute("tabindex", "0");
     row.setAttribute("role", "button");
+    row.setAttribute("aria-pressed", "false");
     row.setAttribute("aria-label", `${d.label}: ${fmtMoney(d.value)} — click to view transactions`);
     row.innerHTML = `
       <span class="legend-color" style="background:${escHtml(d.color)}"></span>
@@ -1375,8 +1377,13 @@ function renderPieChart(svgEl, legendEl, data, chartKey) {
     `;
 
     const handleClick = () => {
-      legendEl.querySelectorAll(".legend-row").forEach((r) => r.classList.remove("legend-row-selected"));
+      if (selectedRow) {
+        selectedRow.classList.remove("legend-row-selected");
+        selectedRow.setAttribute("aria-pressed", "false");
+      }
+      selectedRow = row;
       row.classList.add("legend-row-selected");
+      row.setAttribute("aria-pressed", "true");
       renderCategoryTransactions(d, chartKey);
     };
     row.addEventListener("click", handleClick);
