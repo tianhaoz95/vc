@@ -341,7 +341,14 @@ function calculateTaxes(transactions, method = "FIFO", options = {}) {
 
     // ── Income events ──────────────────────────────────────────────────────
     if (tx.isIncome) {
-      const isIgnored = ignoredIncomeKinds.has(tx.transactionKind);
+      // card_rebate (Netflix, Spotify, Amazon Prime subscription rebates) is
+      // automatically excluded whenever referral_card_cashback is ignored,
+      // because both are CRO card reward benefits controlled by the same
+      // "CRO reward" toggle in the UI.
+      const isIgnored =
+        ignoredIncomeKinds.has(tx.transactionKind) ||
+        (tx.transactionKind === "card_rebate" &&
+          ignoredIncomeKinds.has("referral_card_cashback"));
       if (!isIgnored) {
         const incomeUsd = usd > 0 ? usd : 0;
         report.incomeEvents.push(
