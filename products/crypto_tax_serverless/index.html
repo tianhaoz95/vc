@@ -687,35 +687,39 @@ VALID_METHODS.forEach((method) => {
 });
 
 // ── Income kinds checkboxes ───────────────────────────────────────────────────
-// Human-readable labels for each income transaction kind
-const INCOME_KIND_LABELS = {
-  crypto_earn_interest_paid: "Earn / Savings interest",
-  referral_gift: "Referral bonus",
-  referral_card_cashback: "Card cashback (CRO) / Referral cashback",
-  reimbursement: "Fee reimbursement",
-  reimbursement_reverted: "Fee reimbursement reversal",
-  crypto_payment: "Payment received in crypto",
-  supercharger_reward_to_app_credited: "Supercharger reward",
-  crypto_earn_extra_interest_paid: "Bonus Earn interest",
-  card_cashback_reverted: "Card cashback reversal",
-  dust_conversion_credited: "Dust conversion (CRO credited)",
-  crypto_wallet_swap_credited: "In-wallet swap (credit leg)",
-  mco_stake_reward: "MCO staking reward",
-  crypto_viban_exchange: "VIBAN purchase (credited)",
-  viban_purchase: "Virtual IBAN purchase",
-};
+// Groups of related income transaction kinds sharing a single checkbox.
+// Grouping kinds together means unchecking one checkbox excludes all kinds in
+// the group (e.g. both card cashback and card rebates are excluded together).
+const INCOME_KIND_GROUPS = [
+  {
+    label: "Card cashback & rebates (CRO cashback, Amazon Prime, Netflix, etc.)",
+    kinds: ["referral_card_cashback", "card_rebate"],
+  },
+  { label: "Card cashback reversal", kinds: ["card_cashback_reverted"] },
+  { label: "Earn / Savings interest", kinds: ["crypto_earn_interest_paid"] },
+  { label: "Bonus Earn interest", kinds: ["crypto_earn_extra_interest_paid"] },
+  { label: "Referral bonus", kinds: ["referral_gift"] },
+  { label: "Fee reimbursement", kinds: ["reimbursement"] },
+  { label: "Fee reimbursement reversal", kinds: ["reimbursement_reverted"] },
+  { label: "Payment received in crypto", kinds: ["crypto_payment"] },
+  { label: "Supercharger reward", kinds: ["supercharger_reward_to_app_credited"] },
+  { label: "Dust conversion (CRO credited)", kinds: ["dust_conversion_credited"] },
+  { label: "In-wallet swap (credit leg)", kinds: ["crypto_wallet_swap_credited"] },
+  { label: "MCO staking reward", kinds: ["mco_stake_reward"] },
+  { label: "VIBAN purchase (credited)", kinds: ["crypto_viban_exchange", "viban_purchase"] },
+];
 
-Array.from(INCOME_KINDS).forEach((kind) => {
+INCOME_KIND_GROUPS.forEach((group) => {
   const label = document.createElement("label");
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
-  checkbox.value = kind;
+  checkbox.dataset.kinds = group.kinds.join(",");
   checkbox.checked = true;
   checkbox.addEventListener("change", () => {
     label.classList.toggle("ignored", !checkbox.checked);
   });
   label.appendChild(checkbox);
-  label.appendChild(document.createTextNode(INCOME_KIND_LABELS[kind] || kind));
+  label.appendChild(document.createTextNode(group.label));
   incomeKindsList.appendChild(label);
 });
 
@@ -832,11 +836,12 @@ convertBtn.addEventListener("click", () => {
       }
 
       // Collect ignored income kinds
-      const ignoredIncomeKinds = new Set(
-        Array.from(incomeKindsList.querySelectorAll("input[type=checkbox]"))
-          .filter((cb) => !cb.checked)
-          .map((cb) => cb.value)
-      );
+      const ignoredIncomeKinds = new Set();
+      Array.from(incomeKindsList.querySelectorAll("input[type=checkbox]"))
+        .filter((cb) => !cb.checked)
+        .forEach((cb) => {
+          (cb.dataset.kinds || "").split(",").filter(Boolean).forEach((k) => ignoredIncomeKinds.add(k));
+        });
 
       // Read optional tax year filter
       const taxYearRaw = taxYearInput.value.trim();

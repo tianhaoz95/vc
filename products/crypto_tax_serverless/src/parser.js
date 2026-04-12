@@ -34,6 +34,7 @@ const INCOME_KINDS = new Set([
   "crypto_earn_interest_paid",           // Earn / Savings interest
   "referral_gift",                       // referral bonuses
   "referral_card_cashback",              // card cashback paid in CRO
+  "card_rebate",                         // subscription service rebates (e.g. Amazon Prime, Netflix)
   "reimbursement",                       // fee reimbursements
   "reimbursement_reverted",              // reversal – treated as negative income
   "crypto_payment",                      // payment received in crypto
