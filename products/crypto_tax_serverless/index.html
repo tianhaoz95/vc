@@ -467,6 +467,124 @@
       main { padding: 16px 12px 48px; }
       header { padding: 16px; }
     }
+
+    /* ── Pie-chart modal ─────────────────────────────────────────────────── */
+    .summary-stat.clickable {
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, transform 0.1s;
+    }
+    .summary-stat.clickable:hover {
+      border-color: var(--accent);
+      background: rgba(59,130,246,0.08);
+      transform: translateY(-2px);
+    }
+    .summary-stat.clickable .label::after {
+      content: " ↗";
+      font-size: 0.7em;
+      opacity: 0.6;
+    }
+
+    .chart-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+    .chart-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .chart-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .chart-modal-header h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .chart-modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .chart-modal-close:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+    .chart-modal-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+    .chart-total {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .chart-total strong { color: var(--text); }
+    .chart-svg-wrap {
+      position: relative;
+    }
+    .chart-legend {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+    }
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .legend-label {
+      flex: 1;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .legend-value {
+      color: var(--text);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .legend-pct {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      min-width: 44px;
+      text-align: right;
+    }
+    .chart-empty {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 16px 0;
+    }
   </style>
 </head>
 <body>
@@ -606,6 +724,23 @@
   </div>
 
 </main>
+
+<!-- ── Pie-chart modal ───────────────────────────────────────────────────── -->
+<div id="chart-modal" class="chart-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="chart-modal-title">
+  <div class="chart-modal">
+    <div class="chart-modal-header">
+      <h3 id="chart-modal-title"></h3>
+      <button class="chart-modal-close" id="chart-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="chart-modal-body">
+      <div class="chart-total" id="chart-total"></div>
+      <div class="chart-svg-wrap">
+        <svg id="chart-svg" viewBox="-1 -1 2 2" width="220" height="220" xmlns="http://www.w3.org/2000/svg"></svg>
+      </div>
+      <div class="chart-legend" id="chart-legend"></div>
+    </div>
+  </div>
+</div>
 
 <footer>
   <p>
@@ -928,20 +1063,33 @@ function renderResults(report, method, taxYear) {
   // Summary stats
   summaryGrid.innerHTML = "";
   const stats = [
-    { label: "Short-term Gain/Loss", value: report.totalShortTermGainLoss, isMoney: true },
-    { label: "Long-term Gain/Loss", value: report.totalLongTermGainLoss, isMoney: true },
-    { label: "Total Gain/Loss", value: report.totalGainLoss, isMoney: true },
-    { label: "Ordinary Income", value: report.totalOrdinaryIncome, isMoney: true },
+    { label: "Short-term Gain/Loss", value: report.totalShortTermGainLoss, isMoney: true, chartKey: "short-term" },
+    { label: "Long-term Gain/Loss", value: report.totalLongTermGainLoss, isMoney: true, chartKey: "long-term" },
+    { label: "Total Gain/Loss", value: report.totalGainLoss, isMoney: true, chartKey: "total-gain" },
+    { label: "Ordinary Income", value: report.totalOrdinaryIncome, isMoney: true, chartKey: "income" },
     { label: "Taxable Events", value: report.taxEvents.length, isMoney: false },
     { label: "Income Events", value: report.incomeEvents.length, isMoney: false },
   ];
-  stats.forEach(({ label, value, isMoney }) => {
+  stats.forEach(({ label, value, isMoney, chartKey }) => {
     const div = document.createElement("div");
     div.className = "summary-stat";
     let cls = "neutral";
     let display = isMoney ? fmtMoney(value) : value;
     if (isMoney) cls = value > 0 ? "positive" : value < 0 ? "negative" : "neutral";
     div.innerHTML = `<div class="label">${label}</div><div class="value ${cls}">${display}</div>`;
+    if (chartKey) {
+      div.classList.add("clickable");
+      div.setAttribute("role", "button");
+      div.setAttribute("tabindex", "0");
+      div.setAttribute("aria-label", `View ${label} breakdown chart`);
+      div.addEventListener("click", () => openBreakdownChart(label, chartKey, report));
+      div.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openBreakdownChart(label, chartKey, report);
+        }
+      });
+    }
     summaryGrid.appendChild(div);
   });
 
@@ -1041,6 +1189,167 @@ function makeDownloadUrl(content, mime) {
   const blob = new Blob([content], { type: mime });
   return URL.createObjectURL(blob);
 }
+
+// ── Pie chart ─────────────────────────────────────────────────────────────────
+
+const CHART_COLORS = [
+  "#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6",
+  "#06b6d4", "#f97316", "#ec4899", "#14b8a6", "#a855f7",
+  "#84cc16", "#e879f9", "#facc15", "#38bdf8", "#fb923c",
+];
+
+/**
+ * Map a transactionKind to the human-readable label used in INCOME_KIND_GROUPS.
+ */
+function getIncomeKindLabel(kind) {
+  for (const group of INCOME_KIND_GROUPS) {
+    if (group.kinds.includes(kind)) return group.label;
+  }
+  return kind || "Other";
+}
+
+/**
+ * Build breakdown data for the pie chart from a TaxReport.
+ * Returns [{label, value}] sorted by absolute value descending.
+ */
+function buildBreakdownData(chartKey, report) {
+  const map = new Map();
+
+  if (chartKey === "income") {
+    // Group income events by income kind label
+    for (const evt of report.incomeEvents) {
+      const label = getIncomeKindLabel(evt.transactionKind);
+      map.set(label, (map.get(label) || 0) + evt.fairMarketValueUsd);
+    }
+  } else if (chartKey === "short-term") {
+    // Group short-term capital events by currency
+    for (const evt of report.taxEvents) {
+      if (!evt.isLongTerm) {
+        map.set(evt.currency, (map.get(evt.currency) || 0) + evt.gainLossUsd);
+      }
+    }
+  } else if (chartKey === "long-term") {
+    // Group long-term capital events by currency
+    for (const evt of report.taxEvents) {
+      if (evt.isLongTerm) {
+        map.set(evt.currency, (map.get(evt.currency) || 0) + evt.gainLossUsd);
+      }
+    }
+  } else if (chartKey === "total-gain") {
+    // Short-term vs long-term breakdown
+    const st = report.totalShortTermGainLoss;
+    const lt = report.totalLongTermGainLoss;
+    if (st !== 0) map.set("Short-term", st);
+    if (lt !== 0) map.set("Long-term", lt);
+  }
+
+  return Array.from(map.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value));
+}
+
+/**
+ * Render an SVG pie chart into svgEl and a legend into legendEl.
+ * data: [{label, value, color}]
+ */
+function renderPieChart(svgEl, legendEl, data) {
+  svgEl.innerHTML = "";
+  legendEl.innerHTML = "";
+
+  const total = data.reduce((s, d) => s + Math.abs(d.value), 0);
+  if (total === 0) {
+    legendEl.innerHTML = `<div class="chart-empty">No data to display.</div>`;
+    return;
+  }
+
+  // Draw pie slices
+  let startAngle = -Math.PI / 2;
+  data.forEach((d) => {
+    const fraction = Math.abs(d.value) / total;
+    const angle = fraction * 2 * Math.PI;
+    const endAngle = startAngle + angle;
+
+    const x1 = Math.cos(startAngle);
+    const y1 = Math.sin(startAngle);
+    const x2 = Math.cos(endAngle);
+    const y2 = Math.sin(endAngle);
+    const largeArc = angle > Math.PI ? 1 : 0;
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    if (data.length === 1) {
+      // Full circle when only one slice
+      path.setAttribute("d", "M 0 -1 A 1 1 0 1 1 0 1 A 1 1 0 1 1 0 -1 Z");
+    } else {
+      path.setAttribute("d",
+        `M 0 0 L ${x1.toFixed(6)} ${y1.toFixed(6)} A 1 1 0 ${largeArc} 1 ${x2.toFixed(6)} ${y2.toFixed(6)} Z`);
+    }
+    path.setAttribute("fill", d.color);
+    path.setAttribute("style", "stroke: var(--surface)");
+    path.setAttribute("stroke-width", "0.02");
+    svgEl.appendChild(path);
+
+    startAngle = endAngle;
+  });
+
+  // Build legend
+  data.forEach((d) => {
+    const pct = (Math.abs(d.value) / total * 100).toFixed(1);
+    const row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML = `
+      <span class="legend-color" style="background:${escHtml(d.color)}"></span>
+      <span class="legend-label" title="${escHtml(d.label)}">${escHtml(d.label)}</span>
+      <span class="legend-pct">${pct}%</span>
+      <span class="legend-value">${fmtMoney(d.value)}</span>
+    `;
+    legendEl.appendChild(row);
+  });
+}
+
+/**
+ * Open the breakdown chart modal for the given chartKey.
+ */
+function openBreakdownChart(title, chartKey, report) {
+  const rawData = buildBreakdownData(chartKey, report);
+  const data = rawData.map((d, i) => ({
+    ...d,
+    color: CHART_COLORS[i % CHART_COLORS.length],
+  }));
+
+  const totalVal = rawData.reduce((s, d) => s + d.value, 0);
+
+  document.getElementById("chart-modal-title").textContent = `${title} Breakdown`;
+  document.getElementById("chart-total").innerHTML =
+    `Total: <strong>${fmtMoney(totalVal)}</strong> across <strong>${data.length}</strong> categor${data.length === 1 ? "y" : "ies"}`;
+
+  renderPieChart(
+    document.getElementById("chart-svg"),
+    document.getElementById("chart-legend"),
+    data
+  );
+
+  const modal = document.getElementById("chart-modal");
+  modal.style.display = "flex";
+  document.getElementById("chart-modal-close").focus();
+}
+
+// ── Modal close logic ─────────────────────────────────────────────────────────
+(function () {
+  const modal = document.getElementById("chart-modal");
+  const closeBtn = document.getElementById("chart-modal-close");
+
+  function closeModal() { modal.style.display = "none"; }
+
+  closeBtn.addEventListener("click", closeModal);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.style.display !== "none") closeModal();
+  });
+}());
 </script>
 </body>
 </html>
