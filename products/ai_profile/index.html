@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Developer Profile</title>
+    <style>
+      /* ── Reset & base ─────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #0f1117;
+        --surface: #1a1d27;
+        --surface-2: #232637;
+        --border: #2e3148;
+        --accent: #7c6af5;
+        --accent-hover: #9b8df7;
+        --text: #e2e4f0;
+        --text-muted: #8b90a8;
+        --radius: 10px;
+        --font: 'Inter', system-ui, -apple-system, sans-serif;
+        --sidebar-w: 360px;
+      }
+
+      html, body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+      /* ── Layout ───────────────────────────────────────────────── */
+      .app {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* ── Profile panel ────────────────────────────────────────── */
+      .profile-panel {
+        flex: 1;
+        overflow-y: auto;
+        padding: 48px 40px;
+        max-width: 900px;
+      }
+
+      .profile-header {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        margin-bottom: 40px;
+      }
+
+      .profile-avatar {
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        border: 3px solid var(--accent);
+        background: var(--surface-2);
+        flex-shrink: 0;
+      }
+
+      .profile-title h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+
+      .profile-title .role {
+        color: var(--accent);
+        font-size: 1rem;
+        font-weight: 500;
+        margin-top: 2px;
+      }
+
+      .profile-title .location {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+        margin-top: 4px;
+      }
+
+      /* ── Section card ─────────────────────────────────────────── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 24px 28px;
+        margin-bottom: 24px;
+      }
+
+      .card h2 {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: var(--accent);
+        margin-bottom: 16px;
+      }
+
+      .bio-text {
+        color: var(--text);
+        white-space: pre-line;
+      }
+
+      /* ── Skills ───────────────────────────────────────────────── */
+      .skills-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 16px;
+      }
+
+      .skill-group h3 {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+
+      .skill-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 0.78rem;
+        color: var(--text);
+      }
+
+      /* ── Projects ─────────────────────────────────────────────── */
+      .projects-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .project-item {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        transition: border-color 0.2s;
+      }
+
+      .project-item:hover { border-color: var(--accent); }
+
+      .project-item h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+
+      .project-item h3 a { color: var(--text); }
+      .project-item h3 a:hover { color: var(--accent); text-decoration: none; }
+
+      .project-item p {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+      }
+
+      /* ── Experience ───────────────────────────────────────────── */
+      .experience-list {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .experience-item {
+        display: flex;
+        gap: 16px;
+      }
+
+      .experience-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-top: 6px;
+        flex-shrink: 0;
+      }
+
+      .experience-item h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .experience-item .company {
+        color: var(--accent);
+        font-size: 0.85rem;
+      }
+
+      .experience-item .period {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        margin-bottom: 4px;
+      }
+
+      .experience-item p {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+      }
+
+      /* ── Links ────────────────────────────────────────────────── */
+      .links-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .link-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        color: var(--text);
+        transition: border-color 0.2s, color 0.2s;
+      }
+
+      .link-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      /* ── AI Sidebar ───────────────────────────────────────────── */
+      .ai-sidebar {
+        width: var(--sidebar-w);
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .sidebar-header {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .sidebar-header .title-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .sidebar-header h2 {
+        font-size: 0.95rem;
+        font-weight: 700;
+      }
+
+      .ai-badge {
+        background: var(--accent);
+        color: #fff;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .sidebar-header .subtitle {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .clear-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        transition: color 0.2s, border-color 0.2s;
+      }
+
+      .clear-btn:hover { color: var(--text); border-color: var(--text-muted); }
+
+      /* ── Model status bar ─────────────────────────────────────── */
+      .model-status {
+        font-size: 0.75rem;
+        padding: 8px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .model-status::before {
+        content: '';
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .model-status-loading { color: #f0b429; }
+      .model-status-loading::before { background: #f0b429; animation: pulse 1.2s infinite; }
+      .model-status-ready { color: #5cb85c; }
+      .model-status-ready::before { background: #5cb85c; }
+      .model-status-error { color: #e3342f; }
+      .model-status-error::before { background: #e3342f; }
+      .model-status-generating { color: var(--accent); }
+      .model-status-generating::before { background: var(--accent); animation: pulse 0.8s infinite; }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+
+      /* ── Chat messages ────────────────────────────────────────── */
+      #chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 16px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .message { display: flex; }
+      .message-user { justify-content: flex-end; }
+      .message-assistant { justify-content: flex-start; }
+
+      .message-bubble {
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: var(--radius);
+        font-size: 0.875rem;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .message-user .message-bubble {
+        background: var(--accent);
+        color: #fff;
+        border-bottom-right-radius: 3px;
+      }
+
+      .message-assistant .message-bubble {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-bottom-left-radius: 3px;
+      }
+
+      /* ── Chat input ───────────────────────────────────────────── */
+      .chat-input-area {
+        padding: 12px 16px 16px;
+        border-top: 1px solid var(--border);
+      }
+
+      .suggestions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .suggestion-chip {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s;
+      }
+
+      .suggestion-chip:hover { color: var(--accent); border-color: var(--accent); }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-end;
+      }
+
+      #chat-input {
+        flex: 1;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        color: var(--text);
+        font-family: var(--font);
+        font-size: 0.875rem;
+        line-height: 1.5;
+        padding: 10px 14px;
+        resize: none;
+        outline: none;
+        transition: border-color 0.2s;
+        min-height: 44px;
+        max-height: 120px;
+      }
+
+      #chat-input:focus { border-color: var(--accent); }
+      #chat-input::placeholder { color: var(--text-muted); }
+      #chat-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      #send-btn {
+        background: var(--accent);
+        border: none;
+        border-radius: var(--radius);
+        color: #fff;
+        cursor: pointer;
+        font-size: 1.1rem;
+        height: 44px;
+        width: 44px;
+        flex-shrink: 0;
+        transition: background 0.2s, opacity 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+      #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── WebGPU notice ────────────────────────────────────────── */
+      .webgpu-notice {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        padding: 8px 12px;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+
+      /* ── Responsive ───────────────────────────────────────────── */
+      @media (max-width: 768px) {
+        .app { flex-direction: column; }
+
+        .profile-panel {
+          padding: 24px 20px;
+          max-width: 100%;
+          height: 50vh;
+          overflow-y: auto;
+        }
+
+        .ai-sidebar {
+          width: 100%;
+          height: 50vh;
+          border-left: none;
+          border-top: 1px solid var(--border);
+        }
+
+        .profile-header { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+
+      <!-- ─────────────────── PROFILE PANEL ─────────────────────── -->
+      <main class="profile-panel" id="profile-panel">
+        <!-- Header is injected by JS -->
+      </main>
+
+      <!-- ─────────────────── AI SIDEBAR ───────────────────────── -->
+      <aside class="ai-sidebar">
+        <div class="sidebar-header">
+          <div>
+            <div class="title-group">
+              <h2>Ask AI</h2>
+              <span class="ai-badge">WebLLM</span>
+            </div>
+            <p class="subtitle">Powered by on-device inference · your data stays local</p>
+          </div>
+          <button class="clear-btn" id="clear-btn" title="Clear conversation">Clear</button>
+        </div>
+
+        <div id="model-status" class="model-status model-status-loading">
+          Initializing…
+        </div>
+
+        <div id="chat-messages" role="log" aria-live="polite" aria-label="Chat messages"></div>
+
+        <div class="chat-input-area">
+          <div class="webgpu-notice">
+            ⚡ Runs entirely in your browser — no data sent to any server
+          </div>
+          <div class="suggestions" id="suggestions">
+            <button class="suggestion-chip">What are your skills?</button>
+            <button class="suggestion-chip">Tell me about your projects</button>
+            <button class="suggestion-chip">What's your experience?</button>
+            <button class="suggestion-chip">How can I contact you?</button>
+          </div>
+          <div class="input-row">
+            <textarea
+              id="chat-input"
+              rows="1"
+              placeholder="Ask anything about this developer…"
+              disabled
+              aria-label="Chat input"
+            ></textarea>
+            <button id="send-btn" disabled aria-label="Send message">
+              &#9658;
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ─────────────── Scripts (module type for ESM imports) ─────────── -->
+    <script src="src/profile-data.js"></script>
+    <script>
+      /* ── Render profile from PROFILE config ───────────────────── */
+      (function renderProfile() {
+        const panel = document.getElementById("profile-panel");
+
+        // ── Header ──
+        panel.innerHTML = `
+          <div class="profile-header">
+            <img
+              class="profile-avatar"
+              src="${PROFILE.avatar}"
+              alt="${PROFILE.name} avatar"
+              width="96"
+              height="96"
+            />
+            <div class="profile-title">
+              <h1>${PROFILE.name}</h1>
+              <p class="role">${PROFILE.title}</p>
+              <p class="location">📍 ${PROFILE.location}</p>
+            </div>
+          </div>
+
+          <!-- Bio -->
+          <div class="card">
+            <h2>About</h2>
+            <p class="bio-text">${PROFILE.bio}</p>
+          </div>
+
+          <!-- Skills -->
+          <div class="card">
+            <h2>Skills</h2>
+            <div class="skills-grid">
+              ${PROFILE.skills
+                .map(
+                  (group) => `
+                <div class="skill-group">
+                  <h3>${group.category}</h3>
+                  <div class="skill-tags">
+                    ${group.items.map((s) => `<span class="tag">${s}</span>`).join("")}
+                  </div>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>
+
+          <!-- Projects -->
+          <div class="card">
+            <h2>Projects</h2>
+            <div class="projects-list">
+              ${PROFILE.projects
+                .map(
+                  (p) => `
+                <div class="project-item">
+                  <h3><a href="${p.url}" target="_blank" rel="noopener">${p.name} ↗</a></h3>
+                  <p>${p.description}</p>
+                  <div class="skill-tags">
+                    ${p.tags.map((t) => `<span class="tag">${t}</span>`).join("")}
+                  </div>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>
+
+          <!-- Experience -->
+          <div class="card">
+            <h2>Experience</h2>
+            <div class="experience-list">
+              ${PROFILE.experience
+                .map(
+                  (e) => `
+                <div class="experience-item">
+                  <div class="experience-dot"></div>
+                  <div>
+                    <h3>${e.role}</h3>
+                    <p class="company">${e.company}</p>
+                    <p class="period">${e.period}</p>
+                    <p>${e.description}</p>
+                  </div>
+                </div>`
+                )
+                .join("")}
+            </div>
+          </div>
+
+          <!-- Links -->
+          <div class="card">
+            <h2>Links</h2>
+            <div class="links-row">
+              ${PROFILE.links.github ? `<a class="link-btn" href="${PROFILE.links.github}" target="_blank" rel="noopener">🐙 GitHub</a>` : ""}
+              ${PROFILE.links.linkedin ? `<a class="link-btn" href="${PROFILE.links.linkedin}" target="_blank" rel="noopener">💼 LinkedIn</a>` : ""}
+              ${PROFILE.links.twitter ? `<a class="link-btn" href="${PROFILE.links.twitter}" target="_blank" rel="noopener">🐦 Twitter</a>` : ""}
+              ${PROFILE.links.website ? `<a class="link-btn" href="${PROFILE.links.website}" target="_blank" rel="noopener">🌐 Website</a>` : ""}
+              ${PROFILE.email ? `<a class="link-btn" href="mailto:${PROFILE.email}">✉️ Email</a>` : ""}
+            </div>
+          </div>
+        `;
+
+        // ── Update page title ──
+        document.title = `${PROFILE.name} — Developer Profile`;
+      })();
+    </script>
+
+    <script type="module">
+      /* ── Wire up suggestion chips ─────────────────────────────── */
+      document.querySelectorAll(".suggestion-chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          const input = document.getElementById("chat-input");
+          if (input && !input.disabled) {
+            input.value = chip.textContent.trim();
+            input.dispatchEvent(new Event("input"));
+            input.focus();
+          }
+        });
+      });
+
+      /* ── Auto-resize textarea ─────────────────────────────────── */
+      const textarea = document.getElementById("chat-input");
+      if (textarea) {
+        textarea.addEventListener("input", () => {
+          textarea.style.height = "auto";
+          textarea.style.height = Math.min(textarea.scrollHeight, 120) + "px";
+        });
+      }
+
+      /* ── Load chat module then init engine ────────────────────── */
+      // chat.js is a plain script (not an ES module) so it declares
+      // its functions on the window scope when loaded via <script>.
+      // We load it dynamically here after the DOM is ready.
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "src/chat.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+
+      initChatUI();
+      await initEngine();
+    </script>
+  </body>
+</html>
