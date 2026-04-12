@@ -1084,7 +1084,10 @@ function renderResults(report, method, taxYear) {
       div.setAttribute("aria-label", `View ${label} breakdown chart`);
       div.addEventListener("click", () => openBreakdownChart(label, chartKey, report));
       div.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") openBreakdownChart(label, chartKey, report);
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openBreakdownChart(label, chartKey, report);
+        }
       });
     }
     summaryGrid.appendChild(div);
@@ -1281,7 +1284,7 @@ function renderPieChart(svgEl, legendEl, data) {
         `M 0 0 L ${x1.toFixed(6)} ${y1.toFixed(6)} A 1 1 0 ${largeArc} 1 ${x2.toFixed(6)} ${y2.toFixed(6)} Z`);
     }
     path.setAttribute("fill", d.color);
-    path.setAttribute("stroke", "#1e293b");
+    path.setAttribute("style", "stroke: var(--surface)");
     path.setAttribute("stroke-width", "0.02");
     svgEl.appendChild(path);
 
