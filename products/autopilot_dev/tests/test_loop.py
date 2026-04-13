@@ -92,8 +92,45 @@ class TestAgentLoopMaxLoops:
         assert result.iterations_run == 1
 
 
-class TestAgentLoopPrompts:
-    def test_worker_receives_plan_path(self, all_open_plan, tmp_path):
+class TestAgentLoopSelfCheck:
+    def test_runs_self_check_rounds(self, all_open_plan, tmp_path):
+        # 1 iteration, 2 self-check rounds.
+        # Expect: 1 (worker) + 2 (self-checks) + 1 (reviewer) = 4 calls
+        config = _make_config(all_open_plan, max_loops=1, workdir=str(tmp_path))
+        config.self_check_round = 2
+        loop = AgentLoop(config)
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        with patch("autopilot_dev.loop.AgentRunner.run", return_value=mock_result) as mock_run:
+            loop.run()
+
+        assert mock_run.call_count == 4
+        # Verify that mark_task_open was called twice (for the 2 self-check rounds)
+        # We can't easily check PlanManager calls if it's not mocked, 
+        # but we can verify the total call count.
+    def test_worker_receives_self_check_prompt(self, all_open_plan, tmp_path):
+        config = _make_config(all_open_plan, max_loops=1, workdir=str(tmp_path))
+        config.self_check_round = 1
+        loop = AgentLoop(config)
+
+        captured_prompts = []
+
+        def fake_run(prompt):
+            captured_prompts.append(prompt)
+            result = MagicMock()
+            result.returncode = 0
+            return result
+
+        with patch("autopilot_dev.loop.AgentRunner.run", side_effect=fake_run):
+            loop.run()
+
+        # Call 1: Worker
+        # Call 2: Self-check Worker
+        # Call 3: Reviewer
+        assert "self-check round" not in captured_prompts[0].lower()
+        assert "self-check round" in captured_prompts[1].lower()
+        assert "Review your own work" in captured_prompts[1]
         config = _make_config(all_open_plan, max_loops=1, workdir=str(tmp_path))
         loop = AgentLoop(config)
 

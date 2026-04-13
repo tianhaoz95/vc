@@ -43,16 +43,25 @@ works.
 """
 
 
-def build_worker_prompt(plan_path: str) -> str:
+def build_worker_prompt(plan_path: str, is_self_check: bool = False) -> str:
     """Return the prompt to send to the worker agent.
 
     Args:
         plan_path: Path to the plan markdown file.
+        is_self_check: Whether this is a self-check round.
 
     Returns:
         A fully formatted prompt string.
     """
-    return _WORKER_PROMPT_TEMPLATE.format(plan_path=plan_path)
+    prompt = _WORKER_PROMPT_TEMPLATE.format(plan_path=plan_path)
+    if is_self_check:
+        prompt += "\n\n## Self-check instructions\n"
+        prompt += (
+            "You are in a **self-check round**. Review your own work, ensure all "
+            "deliverables in `./worklog.md` are truly met, and fix any remaining "
+            "bugs or omissions before the final review."
+        )
+    return prompt
 
 
 # ---------------------------------------------------------------------------

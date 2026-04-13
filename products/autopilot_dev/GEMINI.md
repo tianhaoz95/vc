@@ -81,7 +81,7 @@ cli.py
 
 ### `cli.py`
 
-- Builds the `argparse` parser with `--plan`, `--max-loop`, `--worker`, `--reviewer`, `--workdir`, `--timeout`, `--verbose`.
+- Builds the `argparse` parser with `--plan`, `--max-loop`, `--worker`, `--reviewer`, `--workdir`, `--timeout`, `--self-check-round`, `--verbose`.
 - Validates `--max-loop > 0` and both agent specs.
 - Returns exit code `0` (all done) or `1` (loop exhausted).
 

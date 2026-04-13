@@ -26,6 +26,7 @@ class LoopConfig:
         reviewer_spec: Parsed :class:`AgentSpec` for the reviewer agent.
         workdir: Working directory used to locate ``worklog.md``.
         agent_timeout: Optional timeout (seconds) for each agent invocation.
+        self_check_round: Number of self-check rounds for the worker agent.
     """
 
     plan_path: str
@@ -34,6 +35,7 @@ class LoopConfig:
     reviewer_spec: AgentSpec
     workdir: str = "."
     agent_timeout: Optional[int] = None
+    self_check_round: int = 0
 
 
 @dataclass
@@ -91,7 +93,8 @@ class AgentLoop:
         iterations_run = 0
 
         for i in range(self.config.max_loops):
-            if self._plan.all_tasks_done():
+            task = self._plan.get_next_open_task()
+            if task is None:
                 logger.info("All tasks complete after %d iteration(s).", i)
                 return LoopResult(
                     iterations_run=iterations_run,
@@ -101,6 +104,19 @@ class AgentLoop:
 
             logger.info("--- Iteration %d / %d ---", i + 1, self.config.max_loops)
             self._run_worker()
+
+            # Optional self-check rounds
+            for j in range(self.config.self_check_round):
+                logger.info(
+                    "--- Self-check round %d / %d for task: %s ---",
+                    j + 1,
+                    self.config.self_check_round,
+                    task.text,
+                )
+                # Un-check the task so the worker picks it up again.
+                self._plan.mark_task_open(task)
+                self._run_worker(is_self_check=True)
+
             self._run_reviewer()
             iterations_run += 1
 
@@ -120,9 +136,13 @@ class AgentLoop:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _run_worker(self) -> None:
-        prompt = build_worker_prompt(self.config.plan_path)
-        logger.info("Running worker agent: %s", self.config.worker_spec)
+    def _run_worker(self, is_self_check: bool = False) -> None:
+        prompt = build_worker_prompt(self.config.plan_path, is_self_check=is_self_check)
+        logger.info(
+            "Running worker agent (self-check=%s): %s",
+            is_self_check,
+            self.config.worker_spec,
+        )
         result = self._worker.run(prompt)
         logger.info("Worker agent exited with code %s", result.returncode)
 

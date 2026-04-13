@@ -70,6 +70,13 @@ Examples:
         help="Optional per-agent timeout in seconds.",
     )
     parser.add_argument(
+        "--self-check-round",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Number of self-check rounds for the worker agent.",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -120,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
         reviewer_spec=reviewer_spec,
         workdir=args.workdir,
         agent_timeout=args.timeout,
+        self_check_round=args.self_check_round,
     )
 
     loop = AgentLoop(config)

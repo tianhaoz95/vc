@@ -24,6 +24,11 @@ class TestBuildWorkerPrompt:
         prompt = build_worker_prompt("plan.md")
         assert isinstance(prompt, str) and len(prompt) > 50
 
+    def test_contains_self_check_instructions(self):
+        prompt = build_worker_prompt("plan.md", is_self_check=True)
+        assert "self-check round" in prompt.lower()
+        assert "Review your own work" in prompt
+
 
 class TestBuildReviewerPrompt:
     def test_contains_plan_path(self):
