@@ -165,3 +165,67 @@ class TestAgentLoopSelfCheck:
 
         # Second call is the reviewer prompt
         assert str(all_open_plan) in captured_prompts[1]
+
+
+class TestAgentLoopFinalReview:
+    def test_final_review_pass(self, all_done_plan, tmp_path):
+        config = _make_config(all_done_plan, max_loops=1, workdir=str(tmp_path))
+        config.final_reviewer_spec = AgentSpec(cli="gemini-final")
+        loop = AgentLoop(config)
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "<final_review>PASS</final_review>"
+        mock_result.stderr = ""
+
+        with patch("autopilot_dev.loop.AgentRunner.run", return_value=mock_result) as mock_run:
+            result = loop.run()
+
+        # all_done_plan means 0 iterations of worker-reviewer in first pass of run().
+        # Plus 1 call for final reviewer.
+        assert mock_run.call_count == 1
+        assert result.all_tasks_done is True
+
+    def test_final_review_fail_then_pass(self, all_done_plan, tmp_path):
+        config = _make_config(all_done_plan, max_loops=1, workdir=str(tmp_path))
+        config.final_reviewer_spec = AgentSpec(cli="gemini-final")
+        loop = AgentLoop(config)
+
+        call_count = 0
+
+        def fake_run(prompt):
+            nonlocal call_count
+            call_count += 1
+            res = MagicMock()
+            res.returncode = 0
+            if call_count == 1:  # First final review
+                res.stdout = (
+                    "FAIL_TASK: Task A | FINDINGS: Missing something\n"
+                    "<final_review>FAIL</final_review>"
+                )
+            elif call_count == 2:  # Worker (after restart)
+                # simulate fixing task A
+                all_done_plan.write_text(
+                    "- [x] Task A | FAILURE: Missing something\n- [x] Task B\n",
+                    encoding="utf-8",
+                )
+                res.stdout = "Fixed it"
+            elif call_count == 3:  # Reviewer
+                res.stdout = "Review pass"
+            else:  # Second final review
+                res.stdout = "<final_review>PASS</final_review>"
+            res.stderr = ""
+            return res
+
+        with patch("autopilot_dev.loop.AgentRunner.run", side_effect=fake_run) as mock_run:
+            result = loop.run()
+
+        # 1. Final Review (Fail) -> task A unchecked
+        # 2. Worker (fix Task A)
+        # 3. Reviewer
+        # 4. Final Review (Pass)
+        assert call_count == 4
+        assert result.all_tasks_done is True
+        # Check plan file was updated
+        content = all_done_plan.read_text()
+        assert "FAILURE: Missing something" in content

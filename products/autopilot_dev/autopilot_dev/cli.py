@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from pathlib import Path
 
-from autopilot_dev.agents import parse_agent_spec
+from autopilot_dev.agents import AgentRunner, parse_agent_spec
 from autopilot_dev.loop import AgentLoop, LoopConfig
+from autopilot_dev.prompts import build_planner_prompt
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -21,15 +23,24 @@ def _build_parser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   autopilot --plan plan.md --max-loop 100 --worker copilot:gpt-5-mini --reviewer gemini
-  autopilot --plan tasks.md --max-loop 20  --worker copilot:gpt-4o       --reviewer gemini
+  autopilot --planner copilot:claude-sonnet-4.6 --goal "build a todo app" --max-loop 100 --worker gemini --reviewer gemini
   autopilot --plan plan.md --max-loop 5   --worker gemini:gemini-2.0     --reviewer copilot
 """,
     )
     parser.add_argument(
         "--plan",
-        required=True,
         metavar="PATH",
         help="Path to the markdown plan file containing the task list.",
+    )
+    parser.add_argument(
+        "--planner",
+        metavar="CLI[:MODEL]",
+        help="Planner agent spec. Used with --goal to generate a plan.",
+    )
+    parser.add_argument(
+        "--goal",
+        metavar="TEXT",
+        help="The high-level goal to be converted into a plan by the --planner.",
     )
     parser.add_argument(
         "--max-loop",
@@ -53,6 +64,14 @@ Examples:
         metavar="CLI[:MODEL]",
         help=(
             "Reviewer agent spec. Format: <cli>[:<model>]. "
+            "Example: ``gemini`` or ``copilot:gpt-4o``."
+        ),
+    )
+    parser.add_argument(
+        "--final-reviewer",
+        metavar="CLI[:MODEL]",
+        help=(
+            "Optional final reviewer agent spec. Format: <cli>[:<model>]. "
             "Example: ``gemini`` or ``copilot:gpt-4o``."
         ),
     )
@@ -104,6 +123,9 @@ def main(argv: list[str] | None = None) -> int:
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
 
+    if not args.plan and (not args.planner or not args.goal):
+        parser.error("Either --plan or both --planner and --goal must be provided.")
+
     try:
         worker_spec = parse_agent_spec(args.worker)
     except ValueError as exc:
@@ -116,18 +138,47 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--reviewer: {exc}")
         return 1
 
+    final_reviewer_spec = None
+    if args.final_reviewer:
+        try:
+            final_reviewer_spec = parse_agent_spec(args.final_reviewer)
+        except ValueError as exc:
+            parser.error(f"--final-reviewer: {exc}")
+            return 1
+
+    plan_path = args.plan
+    if not plan_path:
+        try:
+            planner_spec = parse_agent_spec(args.planner)
+        except ValueError as exc:
+            parser.error(f"--planner: {exc}")
+            return 1
+
+        print(f"🔄 Planning goal: {args.goal}")
+        planner = AgentRunner(spec=planner_spec, timeout=args.timeout)
+        prompt = build_planner_prompt(args.goal)
+        result = planner.run(prompt)
+        if result.returncode != 0:
+            print(f"❌ Planner failed with exit code {result.returncode}")
+            return 1
+
+        plan_path = "./tasks.md"
+        Path(plan_path).write_text(result.stdout, encoding="utf-8")
+        print(f"✅ Plan generated and saved to {plan_path}")
+
     if args.max_loop < 1:
         parser.error("--max-loop must be a positive integer.")
         return 1
 
     config = LoopConfig(
-        plan_path=args.plan,
+        plan_path=plan_path,
         max_loops=args.max_loop,
         worker_spec=worker_spec,
         reviewer_spec=reviewer_spec,
         workdir=args.workdir,
         agent_timeout=args.timeout,
         self_check_round=args.self_check_round,
+        final_reviewer_spec=final_reviewer_spec,
     )
 
     loop = AgentLoop(config)

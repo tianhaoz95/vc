@@ -103,11 +103,21 @@ class AgentRunner:
             A :class:`subprocess.CompletedProcess` instance.
         """
         import os
+        import sys
 
         cmd = build_agent_command(self.spec, prompt)
         env = {**os.environ, **self.extra_env} if self.extra_env else None
-        return subprocess.run(
+        result = subprocess.run(
             cmd,
             timeout=self.timeout,
             env=env,
+            capture_output=True,
+            text=True,
         )
+        if result.stdout and isinstance(result.stdout, str):
+            sys.stdout.write(result.stdout)
+            sys.stdout.flush()
+        if result.stderr and isinstance(result.stderr, str):
+            sys.stderr.write(result.stderr)
+            sys.stderr.flush()
+        return result

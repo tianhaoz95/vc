@@ -34,6 +34,12 @@ Serverless developer portfolio site with a sidebar AI agent running entirely in 
 - **Location:** `./products/ai_profile`
 - **Documentation:** See [products/ai_profile/GEMINI.md](./products/ai_profile/GEMINI.md) for detailed architecture and instructions.
 
+### 5. autopilot-dev
+An autonomous worker→reviewer coding-agent loop driven by a markdown task plan.
+- **Location:** `./products/autopilot_dev`
+- **Documentation:** See [products/autopilot_dev/GEMINI.md](./products/autopilot_dev/GEMINI.md) for detailed architecture and instructions.
+
+
 ## Development Conventions
 
 - **Mono-repo Structure:** Each major product should be housed in its own directory under `products/`.

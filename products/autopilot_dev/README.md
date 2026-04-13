@@ -50,6 +50,12 @@ pip install -e .
    autopilot --plan plan.md --max-loop 100 --worker copilot:gpt-5-mini --reviewer gemini
    ```
 
+   **OR generate a plan automatically**:
+
+   ```bash
+   autopilot --planner copilot:claude-sonnet-4.6 --goal "build a todo app" --max-loop 100 --worker gemini --reviewer gemini
+   ```
+
    This runs up to 100 worker → reviewer iterations until all tasks are checked.
 
 ---
@@ -57,18 +63,24 @@ pip install -e .
 ## CLI Reference
 
 ```
-autopilot --plan PATH --max-loop N --worker CLI[:MODEL] --reviewer CLI[:MODEL] [options]
+autopilot [--plan PATH | --planner CLI[:MODEL] --goal TEXT] --max-loop N --worker CLI[:MODEL] --reviewer CLI[:MODEL] [options]
 ```
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--plan PATH` | ✅ | Path to the markdown plan file. |
+| `--plan PATH` | ❌* | Path to the markdown plan file. |
+| `--planner CLI[:MODEL]` | ❌* | Planner agent spec to generate a plan from a goal. |
+| `--goal TEXT` | ❌* | The high-level goal to be planned. |
 | `--max-loop N` | ✅ | Maximum number of worker→reviewer iterations (positive integer). |
 | `--worker CLI[:MODEL]` | ✅ | Worker agent spec – e.g. `copilot:gpt-5-mini` or `gemini:gemini-2.0`. |
 | `--reviewer CLI[:MODEL]` | ✅ | Reviewer agent spec – e.g. `gemini` or `copilot:gpt-4o`. |
+| `--final-reviewer CLI[:MODEL]` | ❌ | Optional final reviewer agent spec for a full project audit. |
+| `--self-check-round N` | ❌ | Number of self-check rounds for the worker (default: 0). |
 | `--workdir DIR` | ❌ | Directory for `worklog.md` (default: current directory). |
 | `--timeout SECONDS` | ❌ | Per-agent subprocess timeout in seconds. |
 | `--verbose` / `-v` | ❌ | Enable DEBUG-level logging. |
+
+\* *Either `--plan` OR both `--planner` and `--goal` must be provided.*
 
 ### Agent spec format
 
@@ -148,10 +160,19 @@ Only standard `- [ ]` / `- [x]` list items are treated as tasks; all other lines
 
 ## Development
 
+### Setup
+
+All Python-related work and tests MUST be performed within a `.venv` environment. If it doesn't exist, create it using:
+
+```bash
+uv venv --seed
+source .venv/bin/activate
+```
+
 ### Running Tests
 
 ```bash
-cd products/autopilot_dev
+# Ensure .venv is activated
 pip install -r requirements.txt
 python -m pytest tests/ -v
 ```
@@ -172,6 +193,30 @@ products/autopilot_dev/
 │   ├── loop.py         # AgentLoop – orchestrates the worker/reviewer cycle
 │   ├── agents.py       # AgentSpec, AgentRunner – parses specs, builds commands
 │   ├── plan.py         # PlanManager – reads and modifies the markdown plan
+│   ├── prompts.py      # Prompt templates for worker and reviewer agents
+│   └── worklog.py      # WorklogManager – creates, reads, deletes worklog.md
+├── tests/
+│   ├── test_agents.py
+│   ├── test_cli.py
+│   ├── test_loop.py
+│   ├── test_plan.py
+│   ├── test_prompts.py
+│   └── test_worklog.py
+├── pyproject.toml
+├── requirements.txt
+├── README.md
+└── GEMINI.md
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | All tasks in the plan are completed. |
+| `1` | Loop ended (`--max-loop` reached) with tasks still open. |
+lan
 │   ├── prompts.py      # Prompt templates for worker and reviewer agents
 │   └── worklog.py      # WorklogManager – creates, reads, deletes worklog.md
 ├── tests/

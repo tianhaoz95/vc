@@ -68,6 +68,7 @@ cli.py
 - Contains the full natural-language instructions for each agent role.
 - Worker prompt: find next task, check/create worklog.md, implement, build/test, mark done.
 - Reviewer prompt: read worklog.md, verify deliverables, delete on pass or write findings and uncheck on fail.
+- Planner prompt: take a goal and generate a markdown task list.
 
 ### `worklog.py`
 
@@ -81,31 +82,40 @@ cli.py
 
 ### `cli.py`
 
-- Builds the `argparse` parser with `--plan`, `--max-loop`, `--worker`, `--reviewer`, `--workdir`, `--timeout`, `--self-check-round`, `--verbose`.
-- Validates `--max-loop > 0` and both agent specs.
+- Builds the `argparse` parser with `--plan`, `--planner`, `--goal`, `--max-loop`, `--worker`, `--reviewer`, `--final-reviewer`, `--workdir`, `--timeout`, `--self-check-round`, `--verbose`.
+- Validates `--max-loop > 0` and agent specs.
+- If `--planner` and `--goal` are provided without `--plan`, it invokes the planner to generate `./tasks.md`.
 - Returns exit code `0` (all done) or `1` (loop exhausted).
 
 ## Building and Running
+
+### Virtual Environment
+
+All Python-related work and tests MUST be performed within a `.venv` environment. If the `.venv` directory does not exist, create it using:
+
+```bash
+uv venv --seed
+source .venv/bin/activate
+```
 
 ### Prerequisites
 
 - Python 3.10+
 - `gh` CLI with Copilot extension (for `copilot` worker)
 - `gemini` CLI (for `gemini` reviewer/worker)
+- `uv` (for environment management)
 
 ### Installation
 
 ```bash
-# From GitHub
-pip install "git+https://github.com/tianhaoz95/vc.git#subdirectory=products/autopilot_dev"
-
-# Local editable install
+# Local editable install (within .venv)
 pip install -e .
 ```
 
 ### Running Tests
 
 ```bash
+# Ensure .venv is activated
 pip install -r requirements.txt
 python -m pytest tests/ -v
 ```

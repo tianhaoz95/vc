@@ -50,3 +50,16 @@ class TestBuildReviewerPrompt:
     def test_is_non_empty_string(self):
         prompt = build_reviewer_prompt("plan.md")
         assert isinstance(prompt, str) and len(prompt) > 50
+
+
+class TestBuildPlannerPrompt:
+    def test_contains_goal(self):
+        from autopilot_dev.prompts import build_planner_prompt
+        prompt = build_planner_prompt("build a website")
+        assert "build a goal" not in prompt # just checking
+        assert "build a website" in prompt
+
+    def test_mentions_task_format(self):
+        from autopilot_dev.prompts import build_planner_prompt
+        prompt = build_planner_prompt("goal")
+        assert "- [ ]" in prompt

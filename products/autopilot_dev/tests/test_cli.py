@@ -62,11 +62,6 @@ class TestParser:
         ])
         assert args.verbose is True
 
-    def test_missing_plan_exits(self):
-        parser = _build_parser()
-        with pytest.raises(SystemExit):
-            parser.parse_args(["--max-loop", "5", "--worker", "copilot", "--reviewer", "gemini"])
-
     def test_missing_worker_exits(self, plan_file):
         parser = _build_parser()
         with pytest.raises(SystemExit):
@@ -81,6 +76,11 @@ class TestMain:
             "--worker", "copilot:gpt-5-mini",
             "--reviewer", "gemini",
         ]
+
+    def test_missing_plan_and_planner_exits(self):
+        argv = ["--max-loop", "5", "--worker", "copilot", "--reviewer", "gemini"]
+        with pytest.raises(SystemExit):
+            main(argv)
 
     def test_returns_zero_when_all_tasks_done(self, plan_file):
         fake_result = LoopResult(iterations_run=0, all_tasks_done=True, stopped_early=True)
@@ -122,6 +122,16 @@ class TestMain:
         config = MockLoop.call_args[0][0]
         assert config.max_loops == 5
 
+    def test_passes_correct_final_reviewer_spec(self, plan_file):
+        fake_result = LoopResult(iterations_run=0, all_tasks_done=True, stopped_early=True)
+        argv = self._default_argv(plan_file) + ["--final-reviewer", "copilot:claude-sonnet"]
+        with patch("autopilot_dev.cli.AgentLoop") as MockLoop:
+            MockLoop.return_value.run.return_value = fake_result
+            main(argv)
+        config = MockLoop.call_args[0][0]
+        assert config.final_reviewer_spec.cli == "copilot"
+        assert config.final_reviewer_spec.model == "claude-sonnet"
+
     def test_invalid_worker_spec_exits(self, plan_file):
         argv = [
             "--plan", str(plan_file),
@@ -141,3 +151,38 @@ class TestMain:
         ]
         with pytest.raises(SystemExit):
             main(argv)
+
+    def test_planner_generates_tasks_md(self, tmp_path):
+        import os
+        old_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            fake_result = LoopResult(iterations_run=0, all_tasks_done=True, stopped_early=True)
+            argv = [
+                "--planner", "gemini",
+                "--goal", "test goal",
+                "--max-loop", "5",
+                "--worker", "copilot",
+                "--reviewer", "gemini",
+            ]
+
+            mock_planner_result = MagicMock()
+            mock_planner_result.returncode = 0
+            mock_planner_result.stdout = "- [ ] Task 1\n- [ ] Task 2\n"
+
+            with patch("autopilot_dev.cli.AgentRunner") as MockRunner, \
+                 patch("autopilot_dev.cli.AgentLoop") as MockLoop:
+
+                MockRunner.return_value.run.return_value = mock_planner_result
+                MockLoop.return_value.run.return_value = fake_result
+
+                main(argv)
+
+                tasks_md = tmp_path / "tasks.md"
+                assert tasks_md.exists()
+                assert tasks_md.read_text() == "- [ ] Task 1\n- [ ] Task 2\n"
+
+                config = MockLoop.call_args[0][0]
+                assert config.plan_path == "./tasks.md"
+        finally:
+            os.chdir(old_cwd)

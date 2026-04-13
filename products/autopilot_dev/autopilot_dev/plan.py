@@ -93,6 +93,24 @@ class PlanManager:
             lines[task.line_index] = m.group(1) + " " + m.group(3) + "\n"
             self._write_lines(lines)
 
+    def update_task_text(self, task: Task, new_text: str) -> None:
+        """Replace the text of *task* in the plan file."""
+        lines = self._read_lines()
+        line = lines[task.line_index]
+        m = _TASK_RE.match(line.rstrip("\n"))
+        if m:
+            # m.group(3) starts with ']' and some whitespace.
+            # We want to keep the ']' and the checkmark char, but replace the rest.
+            # Actually, mark_task_done and mark_task_open keep m.group(3) as is.
+            # m.group(3) is "]" + whitespace + text.
+            # Let's find where the text starts in m.group(3).
+            text_match = re.match(r"^(\]\s*)(.+)$", m.group(3))
+            if text_match:
+                lines[task.line_index] = (
+                    m.group(1) + m.group(2) + text_match.group(1) + new_text + "\n"
+                )
+                self._write_lines(lines)
+
     def all_tasks_done(self) -> bool:
         """Return *True* when every task in the plan is checked."""
         tasks = self.get_tasks()

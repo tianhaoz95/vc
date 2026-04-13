@@ -106,3 +106,81 @@ def build_reviewer_prompt(plan_path: str) -> str:
         A fully formatted prompt string.
     """
     return _REVIEWER_PROMPT_TEMPLATE.format(plan_path=plan_path)
+
+
+# ---------------------------------------------------------------------------
+# Final Reviewer prompt
+# ---------------------------------------------------------------------------
+
+_FINAL_REVIEWER_PROMPT_TEMPLATE = """\
+You are an autonomous final-review agent. Your job is to verify that ALL tasks \
+in the project plan have been completed successfully and that the overall \
+goal of the project has been met.
+
+## Your instructions
+
+1. Read the project plan at `{plan_path}`.
+2. Verify that all tasks listed in the plan are correctly implemented and \
+functional by inspecting the code, running tests, and checking outputs.
+3. If **everything is correct and the project is complete**:
+   - Output `<final_review>PASS</final_review>`.
+4. If **any part of the project is incomplete or broken**:
+   - Output `<final_review>FAIL</final_review>`.
+   - Identify the most critical task that failed or is incomplete.
+   - For that task, provide a concise one-line summary of the failure and \
+instructions on how to fix it.
+   - Use the format: `FAIL_TASK: <original task text> | FINDINGS: <failure info and fix instruction>`
+
+## Important notes
+- Be extremely thorough. This is the final check before delivery.
+- Your output MUST contain either `<final_review>PASS</final_review>` or `<final_review>FAIL</final_review>`.
+- If you fail the review, the failure summary MUST follow the format: `FAIL_TASK: ... | FINDINGS: ...`
+"""
+
+
+def build_final_reviewer_prompt(plan_path: str) -> str:
+    """Return the prompt to send to the final reviewer agent.
+
+    Args:
+        plan_path: Path to the plan markdown file.
+
+    Returns:
+        A fully formatted prompt string.
+    """
+    return _FINAL_REVIEWER_PROMPT_TEMPLATE.format(plan_path=plan_path)
+
+
+# ---------------------------------------------------------------------------
+# Planner prompt
+# ---------------------------------------------------------------------------
+
+_PLANNER_PROMPT_TEMPLATE = """\
+You are an expert project planner. Your job is to take a high-level goal and \
+break it down into a detailed, step-by-step markdown task list.
+
+## Your instructions
+
+1. Analyze the following goal: `{goal}`.
+2. Create a markdown task list that covers all necessary steps to achieve this goal.
+3. Each task must be a single line starting with `- [ ] `.
+4. Be specific and ensure tasks are actionable for a coding agent.
+5. Provide ONLY the markdown task list in your output. No preamble or postamble.
+
+## Output format example
+- [ ] Initialize the project structure
+- [ ] Create the database schema
+- [ ] Implement the user authentication logic
+...
+"""
+
+
+def build_planner_prompt(goal: str) -> str:
+    """Return the prompt to send to the planner agent.
+
+    Args:
+        goal: The high-level project goal.
+
+    Returns:
+        A fully formatted prompt string.
+    """
+    return _PLANNER_PROMPT_TEMPLATE.format(goal=goal)
