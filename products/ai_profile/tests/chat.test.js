@@ -116,3 +116,50 @@ describe("appendMessage()", () => {
     expect(result).toBeDefined();
   });
 });
+
+describe("isMobileDevice()", () => {
+  const originalNavigator = global.navigator;
+
+  afterEach(() => {
+    global.navigator = originalNavigator;
+  });
+
+  test("returns true when userAgentData.mobile is true", () => {
+    global.navigator = { userAgentData: { mobile: true } };
+    expect(chat.isMobileDevice()).toBe(true);
+  });
+
+  test("returns false when userAgentData.mobile is false", () => {
+    global.navigator = { userAgentData: { mobile: false } };
+    expect(chat.isMobileDevice()).toBe(false);
+  });
+
+  test("falls back to user agent string — mobile UA returns true", () => {
+    global.navigator = {
+      userAgent:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148",
+    };
+    expect(chat.isMobileDevice()).toBe(true);
+  });
+
+  test("falls back to user agent string — Android UA returns true", () => {
+    global.navigator = {
+      userAgent:
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Mobile Safari/537.36",
+    };
+    expect(chat.isMobileDevice()).toBe(true);
+  });
+
+  test("falls back to user agent string — desktop UA returns false", () => {
+    global.navigator = {
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
+    };
+    expect(chat.isMobileDevice()).toBe(false);
+  });
+
+  test("returns false when navigator is unavailable", () => {
+    global.navigator = undefined;
+    expect(chat.isMobileDevice()).toBe(false);
+  });
+});

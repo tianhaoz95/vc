@@ -13,12 +13,44 @@
 const WEBLLM_CDN = "https://esm.run/@mlc-ai/web-llm";
 
 /**
- * Default model to load.  Phi-3.5-mini is small (~2 GB) and fast enough for
- * a profile-assistant use-case.  Users with limited VRAM can swap this for
- * "Phi-3.5-mini-instruct-q4f16_1-MLC" or another model from the WebLLM
- * model library.
+ * Default model for desktop/laptop browsers.
+ * Phi-3.5-mini is small (~2 GB) and fast enough for a profile-assistant
+ * use-case on hardware with a capable GPU.
  */
 const DEFAULT_MODEL = "Phi-3.5-mini-instruct-q4f16_1-MLC";
+
+/**
+ * Lightweight model for mobile devices.
+ * SmolLM2-1.7B is significantly smaller (~1 GB) and well-suited for the
+ * weaker GPUs found on phones and tablets.
+ */
+const MOBILE_MODEL = "SmolLM2-1.7B-Instruct-q4f16_1-MLC";
+
+// ── Device detection ───────────────────────────────────────────────────────
+
+/**
+ * Returns true when the page is running on a mobile (or tablet) device.
+ *
+ * Prefers the modern `navigator.userAgentData.mobile` hint when available;
+ * falls back to a User-Agent string regex for older browsers.
+ *
+ * @returns {boolean}
+ */
+function isMobileDevice() {
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.userAgentData &&
+    typeof navigator.userAgentData.mobile === "boolean"
+  ) {
+    return navigator.userAgentData.mobile;
+  }
+  if (typeof navigator !== "undefined" && navigator.userAgent) {
+    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+  }
+  return false;
+}
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -83,12 +115,14 @@ async function initEngine() {
   setStatus("Importing WebLLM…", "loading");
   setInputEnabled(false);
 
+  const modelId = isMobileDevice() ? MOBILE_MODEL : DEFAULT_MODEL;
+
   try {
     const webllm = await import(WEBLLM_CDN);
 
     setStatus("Downloading model (first visit may take a few minutes)…", "loading");
 
-    engine = await webllm.CreateMLCEngine(DEFAULT_MODEL, {
+    engine = await webllm.CreateMLCEngine(modelId, {
       initProgressCallback: (report) => {
         const pct = Math.round((report.progress || 0) * 100);
         setStatus(`Loading model… ${pct}%`, "loading");
@@ -208,6 +242,7 @@ if (typeof module !== "undefined" && module.exports) {
     appendMessage,
     setStatus,
     setInputEnabled,
+    isMobileDevice,
     buildSystemPromptForChat: () => buildSystemPrompt(),
   };
 }
