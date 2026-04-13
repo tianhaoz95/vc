@@ -10,7 +10,8 @@ A serverless developer profile site with a WebLLM-powered on-device AI sidebar.
 - **Technologies:**
     - **Frontend:** Vanilla HTML5, CSS3, JavaScript (ES6+)
     - **AI Inference:** [WebLLM](https://webllm.mlc.ai/) (`@mlc-ai/web-llm`) loaded from CDN via ESM
-    - **Default Model:** `Phi-3.5-mini-instruct-q4f16_1-MLC` (~2 GB, cached in browser)
+    - **Default Model:** `Phi-3.5-mini-instruct-q4f16_1-MLC` (~2 GB, cached in browser, used on desktop)
+    - **Mobile Model:** `SmolLM2-1.7B-Instruct-q4f16_1-MLC` (~1 GB, automatically selected on mobile/tablet)
     - **Testing:** Jest
     - **Deployment:** Firebase Hosting (or any static host)
 
@@ -97,7 +98,8 @@ Upload `index.html` and the `src/` directory. No build step is required.
 |---|---|
 | Developer name, bio, links | `PROFILE` object in `src/profile-data.js` |
 | Skills / projects / experience | `PROFILE` object in `src/profile-data.js` |
-| AI model | `DEFAULT_MODEL` constant in `src/chat.js` |
+| AI model (desktop) | `DEFAULT_MODEL` constant in `src/chat.js` |
+| AI model (mobile/tablet) | `MOBILE_MODEL` constant in `src/chat.js` |
 | Colour scheme | CSS custom properties in `index.html` `:root` block |
 | Sidebar width | `--sidebar-w` CSS variable in `index.html` |
 
